@@ -1,5 +1,8 @@
 ///|
 test "OTLP retries only retryable statuses and delay is capped" {
+  assert_eq(@exporter.retry_after("2"), 2000)
+  assert_eq(@exporter.retry_after("999999999999999999999999999"), 3600000)
+  assert_eq(@exporter.retry_after("bad"), 0)
   for code in [429, 502, 503, 504] {
     assert_true(@exporter.retryable(code))
   }
