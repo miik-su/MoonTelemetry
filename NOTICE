@@ -1,0 +1,6 @@
+MoonTelemetry
+Copyright 2026 MoonTelemetry contributors
+
+This product uses MoonBit community OpenTelemetry models and SDK fixtures,
+moonbitlang/async, moonbitlang/protobuf and the MoonBit standard library.
+See THIRD_PARTY_NOTICES.md and LICENSE for sources and license declarations.
