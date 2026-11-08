@@ -214,6 +214,7 @@ pub fn parse(
   source : String,
   env~ : (String) -> String? = _ => None,
 ) -> Config raise {
+  validate_keys(source)
   let root = object(expand(@json.parse(source), env), "config")
   fields(root, ["receivers", "processors", "exporters", "service"], "config")
   let receivers = Map([])

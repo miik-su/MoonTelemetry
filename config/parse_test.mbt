@@ -23,6 +23,26 @@ test "defaults and missing references" {
 }
 
 ///|
+test "duplicate component IDs cannot be silently overwritten" {
+  assert_true(
+    try {
+      let _ = @config.parse("{\"receivers\":{},\"receivers\":{}}")
+      false
+    } catch {
+      _ => true
+    },
+  )
+  assert_true(
+    try {
+      let _ = @config.parse("{\"receivers\":{\"otlp\":{},\"ot\\u006cp\":{}}}")
+      false
+    } catch {
+      _ => true
+    },
+  )
+}
+
+///|
 test "unknown fields invalid limits and unresolved environment" {
   for
     source in [
