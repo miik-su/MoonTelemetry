@@ -20,11 +20,12 @@ pub fn retry_delay(attempt : Int32) -> Int32 {
 }
 
 ///|
+#derive(Debug)
 pub(all) suberror ExportError {
   Permanent(Int32)
   Transient
   InvalidResponse
-} derive(Debug)
+}
 
 ///|
 pub async fn read_bounded(reader : &@io.Reader, max_bytes : Int32) -> Bytes {

@@ -1,11 +1,12 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum Command {
   Run(String)
   Validate(String)
   Version
   Components
   Help
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn parse(

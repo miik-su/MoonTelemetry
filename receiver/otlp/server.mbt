@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror RequestError {
   TooLarge
   BadEncoding
-} derive(Debug)
+}
 
 ///|
 pub fn route(path : String) -> @data.Signal? {

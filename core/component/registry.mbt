@@ -1,24 +1,27 @@
 ///|
+#derive(Debug)
 pub(all) suberror CollectorError {
   Configuration(String)
   Backpressure(String)
   Stopped
-} derive(Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Kind {
   Receiver
   Processor
   Exporter
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum State {
   Created
   Running
   Draining
   Closed
-} derive(Eq, Debug)
+}
 
 ///|
 pub struct Lifecycle {
