@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/socket",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
+  "miik-su/moontelemetry/config",
+  "miik-su/moontelemetry/service",
+  "miik-su/moontelemetry/extensions/memory",
+}
+
+pkgtype(kind: "executable")
