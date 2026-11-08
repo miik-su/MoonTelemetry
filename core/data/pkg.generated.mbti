@@ -10,6 +10,8 @@ pub fn decode(Signal, Bytes, json~ : Bool) -> Envelope raise
 
 pub fn from_json(Signal, Json) -> Envelope raise
 
+pub fn merge_future(Signal, Array[Envelope]) -> Envelope raise
+
 pub fn rejected(Signal, Bytes, json~ : Bool) -> Int64 raise
 
 pub fn response(Signal, rejected~ : Int32, message? : String, json~ : Bool) -> Bytes raise
@@ -26,6 +28,7 @@ pub fn DataError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) enum Envelope {
+  Future(Signal, Bytes, Json)
   Logs(@moonbit-community/opentelemetry/protocol/collector/logs/v1.ExportLogsServiceRequest)
   Metrics(@moonbit-community/opentelemetry/protocol/collector/metrics/v1.ExportMetricsServiceRequest)
   Traces(@moonbit-community/opentelemetry/protocol/collector/trace/v1.ExportTraceServiceRequest)

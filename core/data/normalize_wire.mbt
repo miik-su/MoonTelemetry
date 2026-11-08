@@ -26,6 +26,15 @@ fn normalize_wire(
       }
     }
     let content_start = pos
+    if wire == 0 &&
+      field is Some(f) &&
+      enum_limit(f.name) >= 0 &&
+      fields_seen.length() > 1 {
+      let (value, _) = varint(bytes, pos)
+      if value > enum_limit(f.name).to_uint64() {
+        fields_seen[1] += 1
+      }
+    }
     let len = match wire {
       0 => {
         let (_, next) = varint(bytes, pos)

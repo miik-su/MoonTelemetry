@@ -26,6 +26,7 @@ pub fn signal_from_name(name : String) -> Signal? {
 
 ///|
 pub(all) enum Envelope {
+  Future(Signal, Bytes, Json)
   Logs(@logs.ExportLogsServiceRequest)
   Metrics(@metrics.ExportMetricsServiceRequest)
   Traces(@traces.ExportTraceServiceRequest)
@@ -34,6 +35,7 @@ pub(all) enum Envelope {
 ///|
 pub fn Envelope::signal(self : Envelope) -> Signal {
   match self {
+    Future(signal, _, _) => signal
     Logs(_) => Logs
     Metrics(_) => Metrics
     Traces(_) => Traces
@@ -42,7 +44,11 @@ pub fn Envelope::signal(self : Envelope) -> Signal {
 
 ///|
 pub fn Envelope::to_json(self : Envelope) -> Json raise DataError {
+  if self is Future(_, _, j) {
+    return j
+  }
   let json = match self {
+    Future(_, _, j) => j
     Logs(x) => x.to_json()
     Metrics(x) => x.to_json()
     Traces(x) => x.to_json()
@@ -53,6 +59,7 @@ pub fn Envelope::to_json(self : Envelope) -> Json raise DataError {
 ///|
 pub fn Envelope::count(self : Envelope) -> Int32 {
   match self {
+    Future(_, _, j) => count_records(j)
     Logs(x) =>
       x.resource_logs.fold(init=0, (n, r) => {
         n + r.scope_logs.fold(init=0, (n, s) => n + s.log_records.length())
@@ -114,8 +121,12 @@ pub fn decode(signal : Signal, body : Bytes, json~ : Bool) -> Envelope raise {
     )
   }
   validate_wire(body)
-  let body = normalize_wire(body, root_kind(signal), 0, [0])
+  let metadata = [0, 0]
+  let body = normalize_wire(body, root_kind(signal), 0, metadata)
   validate_message(body, 0, body.length(), root_kind(signal), 0, [0, 0])
+  if metadata[1] > 0 {
+    return Future(signal, body, wire_json(body, root_kind(signal)))
+  }
   let reader = @protobuf.BytesReader::from_bytes(body)
   let result = match signal {
     Logs => Envelope::Logs(@protobuf.Read::read(reader))
@@ -128,11 +139,15 @@ pub fn decode(signal : Signal, body : Bytes, json~ : Bool) -> Envelope raise {
 
 ///|
 pub fn Envelope::encode(self : Envelope, json~ : Bool) -> Bytes raise {
+  if self is Future(_, bytes, j) {
+    return if json { @utf8.encode(j.stringify()) } else { bytes }
+  }
   if json {
     return @utf8.encode(self.to_json().stringify())
   }
   let buffer = @buffer.Buffer()
   match self {
+    Future(_, _, _) => ()
     Logs(x) => x.write(buffer)
     Metrics(x) => x.write(buffer)
     Traces(x) => x.write(buffer)

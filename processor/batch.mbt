@@ -69,7 +69,7 @@ pub fn Batch::push(
 }
 
 ///|
-pub fn Batch::tick(self : Batch, now~ : Int64) -> @data.Envelope? {
+pub fn Batch::tick(self : Batch, now~ : Int64) -> @data.Envelope? raise {
   if !self.pending.is_empty() && now - self.since >= self.timeout_ms.to_int64() {
     self.flush()
   } else {
@@ -78,37 +78,41 @@ pub fn Batch::tick(self : Batch, now~ : Int64) -> @data.Envelope? {
 }
 
 ///|
-pub fn Batch::flush(self : Batch) -> @data.Envelope? {
+pub fn Batch::flush(self : Batch) -> @data.Envelope? raise {
   if self.pending.is_empty() {
     return None
   }
-  let result = match self.signal {
-    Logs => {
-      let all = []
-      for item in self.pending {
-        if item is Logs(x) {
-          all.append(x.resource_logs)
+  let result = if self.pending.any(item => item is Future(_, _, _)) {
+    @data.merge_future(self.signal, self.pending)
+  } else {
+    match self.signal {
+      Logs => {
+        let all = []
+        for item in self.pending {
+          if item is Logs(x) {
+            all.append(x.resource_logs)
+          }
         }
+        @data.Envelope::Logs({ resource_logs: all, })
       }
-      @data.Envelope::Logs({ resource_logs: all, })
-    }
-    Metrics => {
-      let all = []
-      for item in self.pending {
-        if item is Metrics(x) {
-          all.append(x.resource_metrics)
+      Metrics => {
+        let all = []
+        for item in self.pending {
+          if item is Metrics(x) {
+            all.append(x.resource_metrics)
+          }
         }
+        @data.Envelope::Metrics({ resource_metrics: all, })
       }
-      @data.Envelope::Metrics({ resource_metrics: all, })
-    }
-    Traces => {
-      let all = []
-      for item in self.pending {
-        if item is Traces(x) {
-          all.append(x.resource_spans)
+      Traces => {
+        let all = []
+        for item in self.pending {
+          if item is Traces(x) {
+            all.append(x.resource_spans)
+          }
         }
+        @data.Envelope::Traces({ resource_spans: all, })
       }
-      @data.Envelope::Traces({ resource_spans: all, })
     }
   }
   self.pending.clear()
