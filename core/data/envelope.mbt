@@ -47,7 +47,7 @@ pub fn Envelope::to_json(self : Envelope) -> Json raise DataError {
     Metrics(x) => x.to_json()
     Traces(x) => x.to_json()
   }
-  ids(json, false)
+  otlp_json_out(ids(json, false))
 }
 
 ///|
@@ -94,12 +94,7 @@ pub(all) suberror DataError {
 
 ///|
 pub fn from_json(signal : Signal, json : Json) -> Envelope raise {
-  let json = ids(json, true)
-  match signal {
-    Logs => Logs(@json.from_json(json))
-    Metrics => Metrics(@json.from_json(json))
-    Traces => Traces(@json.from_json(json))
-  }
+  decode(signal, json_to_wire(json, root_kind(signal), 0), json=false)
 }
 
 ///|
@@ -108,6 +103,7 @@ pub fn decode(signal : Signal, body : Bytes, json~ : Bool) -> Envelope raise {
     return from_json(signal, @json.parse(@utf8.decode(body)))
   }
   validate_wire(body)
+  validate_message(body, 0, body.length(), root_kind(signal), 0)
   let reader = @protobuf.BytesReader::from_bytes(body)
   let result = match signal {
     Logs => Envelope::Logs(@protobuf.Read::read(reader))
