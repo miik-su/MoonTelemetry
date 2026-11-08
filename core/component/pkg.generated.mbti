@@ -14,6 +14,7 @@ pub(all) suberror CollectorError {
   Configuration(String)
   Backpressure(String)
   Stopped
+  NotConfigured
 } derive(@debug.Debug)
 pub fn CollectorError::to_repr(Self) -> @debug.Repr
 

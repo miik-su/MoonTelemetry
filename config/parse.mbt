@@ -170,6 +170,15 @@ fn processor_spec(
   let m = object(j, "processors." + id)
   let p = "processors." + id
   match component_type(id) {
+    "redaction" => {
+      fields(m, ["keys", "body"], p)
+      let keys = if m.contains("keys") {
+        names(m, "keys", p)
+      } else {
+        ["authorization", "password", "token", "api_key", "secret"]
+      }
+      Transform(@processor.Redact(keys, body=boolean(m, "body", false, p)))
+    }
     "memory_limiter" => {
       fields(m, ["max_bytes"], p)
       Memory(number(m, "max_bytes", 16777216, p))
@@ -233,7 +242,10 @@ pub fn parse(
     let m = object(j, p)
     fields(
       m,
-      ["host", "port", "max_body_bytes", "timeout_ms", "max_connections"],
+      [
+        "host", "port", "max_body_bytes", "timeout_ms", "max_connections", "header_timeout_ms",
+        "body_idle_timeout_ms", "processing_timeout_ms", "health_enabled", "health_token",
+      ],
       p,
     )
     let host = text(m, "host", "127.0.0.1", p)
@@ -241,6 +253,28 @@ pub fn parse(
       error(p, "host must not be empty")
     }
     receivers[id] = ReceiverSpec::{
+      header_timeout_ms: number(m, "header_timeout_ms", 3000, p, max=600000),
+      body_idle_timeout_ms: number(
+        m,
+        "body_idle_timeout_ms",
+        3000,
+        p,
+        max=600000,
+      ),
+      processing_timeout_ms: number(
+        m,
+        "processing_timeout_ms",
+        1000,
+        p,
+        max=600000,
+      ),
+      health_enabled: boolean(
+        m,
+        "health_enabled",
+        ["127.0.0.1", "::1", "localhost"].contains(host.to_lower()),
+        p,
+      ),
+      health_token: text(m, "health_token", "", p),
       host,
       port: number(m, "port", 4318, p, max=65535),
       max_body_bytes: number(m, "max_body_bytes", 67108864, p),

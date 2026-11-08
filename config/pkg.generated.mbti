@@ -63,6 +63,11 @@ pub struct ReceiverSpec {
   max_body_bytes : Int32
   timeout_ms : Int32
   max_connections : Int32
+  header_timeout_ms : Int32
+  body_idle_timeout_ms : Int32
+  processing_timeout_ms : Int32
+  health_enabled : Bool
+  health_token : String
 }
 
 // Type aliases

@@ -8,6 +8,7 @@ pub(all) enum Action {
 
 ///|
 pub(all) enum Transform {
+  Redact(Array[String], body~ : Bool)
   Attributes(Array[Action])
   Resource(Array[Action])
   DropAttribute(String, Json)
@@ -122,7 +123,31 @@ pub fn Transform::process(
   self : Transform,
   input : @data.Envelope,
 ) -> @data.Envelope raise {
+  if self is Redact(keys, body~) {
+    return @data.from_json(input.signal(), redact(input.to_json(), keys, body))
+  }
   @data.from_json(input.signal(), walk(input.to_json(), self, false, false))
+}
+
+///|
+fn redact(j : Json, keys : Array[String], body : Bool) -> Json {
+  match j {
+    Object(m) => {
+      let out : Map[String, Json] = Map([])
+      let sensitive = m.get("key") is Some(String(k)) &&
+        keys.any(key => key.to_lower() == k.to_lower())
+      for k, v in m {
+        out[k] = if (k == "value" && sensitive) || (k == "body" && body) {
+          { "stringValue": "[REDACTED]" }
+        } else {
+          redact(v, keys, body)
+        }
+      }
+      Json::object(out)
+    }
+    Array(a) => Json::array(a.map(v => redact(v, keys, body)))
+    _ => j
+  }
 }
 
 ///|

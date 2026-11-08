@@ -3,6 +3,7 @@ pub(all) suberror CollectorError {
   Configuration(String)
   Backpressure(String)
   Stopped
+  NotConfigured
 } derive(Debug)
 
 ///|
@@ -96,7 +97,10 @@ pub fn Registry::contains(self : Registry, name : String, kind : Kind) -> Bool {
 pub fn builtins() -> Registry {
   let r = Registry::new()
   try! r.register("otlp", Receiver)
-  for name in ["attributes", "resource", "filter", "batch", "memory_limiter"] {
+  for
+    name in [
+      "attributes", "resource", "filter", "batch", "memory_limiter", "redaction",
+    ] {
     try! r.register(name, Processor)
   }
   for name in ["debug", "file", "otlp"] {

@@ -36,6 +36,7 @@ pub fn Batch::push(Self, @data.Envelope, now~ : Int64) -> Array[@data.Envelope] 
 pub fn Batch::tick(Self, now~ : Int64) -> @data.Envelope?
 
 pub(all) enum Transform {
+  Redact(Array[String], body~ : Bool)
   Attributes(Array[Action])
   Resource(Array[Action])
   DropAttribute(String, Json)

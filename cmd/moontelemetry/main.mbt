@@ -10,7 +10,7 @@ async fn main {
     Version => println("MoonTelemetry 0.1.0")
     Components =>
       println(
-        "receivers: otlp\nprocessors: memory_limiter, resource, attributes, filter, batch\nexporters: debug, file, otlp",
+        "receivers: otlp\nprocessors: memory_limiter, resource, attributes, filter, batch, redaction\nexporters: debug, file, otlp",
       )
     Validate(path) => {
       let config = @config.parse(
