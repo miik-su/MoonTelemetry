@@ -1,0 +1,6 @@
+import {
+  "moonbitlang/core/json",
+  "miik-su/moontelemetry/core/data",
+  "miik-su/moontelemetry/core/component",
+  "miik-su/moontelemetry/processor",
+}
