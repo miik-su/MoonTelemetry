@@ -57,10 +57,11 @@ fn number(
   default : Int32,
   path : String,
   max~ : Int32 = 1073741824,
+  min~ : Int32 = 1,
 ) -> Int32 raise @component.CollectorError {
   match m.get(k) {
     None => default
-    Some(Number(n, ..)) if n >= 1 &&
+    Some(Number(n, ..)) if n >= min.to_double() &&
       n <= max.to_double() &&
       n.to_int().to_double() == n => n.to_int()
     _ => {
@@ -270,20 +271,12 @@ pub fn parse(
       "otlp" => {
         fields(m, ["endpoint", "json", "timeout_ms", "retries"], p)
         let endpoint = text(m, "endpoint", "", p)
-        if !(endpoint.has_prefix("http://") || endpoint.has_prefix("https://")) ||
-          endpoint.has_suffix("/") ||
-          endpoint.contains("?") ||
-          endpoint.contains("#") ||
-          endpoint.contains("@") {
-          error(
-            p, "endpoint must be HTTP(S) base URL without trailing slash, credentials, query or fragment",
-          )
-        }
+        let _ = self_endpoint(endpoint)
         Otlp(
           endpoint~,
           json=boolean(m, "json", false, p),
           timeout_ms=number(m, "timeout_ms", 10000, p, max=600000),
-          retries=number(m, "retries", 3, p, max=10),
+          retries=number(m, "retries", 3, p, max=10, min=0),
         )
       }
       _ => Plugin(factories.exporter(component_type(id), j))

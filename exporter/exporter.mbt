@@ -51,7 +51,8 @@ async fn send_once(
   timeout_ms : Int32,
 ) -> Int32 {
   @async.with_timeout(timeout_ms, async fn() {
-    let client = @http.Client(endpoint)
+    let parsed = @config.endpoint(endpoint)
+    let client = @http.Client(parsed.origin)
     defer client.close()
     let body = input.encode(json~)
     let headers = Map::from_array([
@@ -65,7 +66,7 @@ async fn send_once(
       ),
     ])
     let response = client.post(
-      input.signal().path(),
+      parsed.base_path + input.signal().path(),
       body,
       extra_headers=headers,
     )

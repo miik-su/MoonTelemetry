@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn endpoint(String) -> Endpoint raise
+
 pub fn parse(String, env? : (String) -> String?, factories? : @component.Factories) -> Config raise
 
 // Errors
@@ -23,6 +25,11 @@ pub struct Config {
   queue_capacity : Int32
   queue_bytes : Int32
   shutdown_timeout_ms : Int32
+}
+
+pub struct Endpoint {
+  origin : String
+  base_path : String
 }
 
 pub(all) enum ExporterSpec {
