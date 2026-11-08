@@ -9,10 +9,16 @@ async fn main {
   let base = ".mooncakes/moonbit-community/opentelemetry/protocol/"
   let definitions : Map[String,String] = Map([])
   let json_models : Map[String,String] = Map([])
+  let enums : Map[String,Bool] = Map([])
   for file in ["common/v1", "resource/v1", "logs/v1", "metrics/v1", "trace/v1", "collector/logs/v1", "collector/metrics/v1", "collector/trace/v1"] {
     let source = @fs.read_file(base+file+"/top.mbt").text()
     for block in source.split("///|") {
       let block = block.trim().to_owned()
+      let enum_marker = "pub(all) enum "
+      if block.has_prefix(enum_marker) {
+        let name = block[enum_marker.length():].to_owned().split(" {").next().unwrap().to_owned()
+        enums[name] = true
+      }
       let marker = "pub impl @protobuf.Read for "
       if block.has_prefix(marker) {
         let name = block[marker.length():].to_owned().split(" with ").next().unwrap().to_owned()
@@ -46,7 +52,12 @@ async fn main {
         guard decoder.contains("("+number+", _) =>") else { abort("field number drift in "+kind+": "+number) }
         guard json_models.get(model).unwrap_or("").contains("(\""+parts[1].to_owned()+"\",") else { abort("JSON field drift in "+kind) }
         let branch = decoder.split("("+number+", _) =>").collect()[1].to_owned().split("\n        (").next().unwrap().to_owned()
-        let field_kind = parts[2].to_owned().replace(old="[]",new="")
+        let field_spec = parts[2].to_owned()
+        let field_kind = field_spec.replace(old="[]",new="").replace(old="!",new="")
+        let repeated = field_spec.has_suffix("[]") || field_kind.has_prefix("packed")
+        guard repeated == (branch.contains(".push(") || branch.contains(".push_iter(")) else { abort("repeated field drift in "+kind+": "+number) }
+        let upstream_oneof = (enums.contains(model+"_Value") && branch.contains("msg.value =")) || (enums.contains(model+"_Data") && branch.contains("msg.data ="))
+        guard field_spec.has_suffix("!") == upstream_oneof else { abort("oneof field drift in "+kind+": "+number) }
         let expected = match field_kind {
           "str" => "read_string"
           "bool" => "read_bool"
@@ -57,8 +68,10 @@ async fn main {
           "double" => "read_double"
           "sint" => "read_sint32"
           "bytes" | "id" => "read_bytes"
-          "packed64" | "packedDouble" | "packedUInt" => "read_packed"
-          "uint" => "read_"
+          "packed64" => "read_packed(@protobuf.read_fixed64"
+          "packedDouble" => "read_packed(@protobuf.read_double"
+          "packedUInt" => "read_packed(@protobuf.read_uint64"
+          "uint" => if ["kind", "severityNumber", "aggregationTemporality", "code"].contains(parts[1].to_owned()) { "read_enum" } else if ["keyStrindex", "stringValueStrindex"].contains(parts[1].to_owned()) { "read_int32" } else { "read_uint32" }
           _ => "read_message"
         }
         guard branch.contains(expected) else { abort("wire type drift in "+kind+": "+number) }
@@ -68,6 +81,6 @@ async fn main {
       checked += 1
     }
   }
-  guard checked >= 25 else { abort("descriptor extraction incomplete") }
-  println("Verified field-number coverage for \{checked} upstream message models")
+  guard checked == 40 else { abort("expected exactly 40 upstream message models") }
+  println("Verified field numbers, JSON names, scalar/packed types, repetition and oneofs for \{checked} upstream message models")
 }

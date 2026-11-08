@@ -7,6 +7,7 @@ priv struct Field {
   name : String
   kind : String
   repeated : Bool
+  oneof : Bool
 }
 
 ///|
@@ -53,7 +54,7 @@ fn build_descriptor(kind : String) -> Array[Field] {
       "1:name:str 2:version:str 3:attributes:KeyValue[] 4:droppedAttributesCount:uint"
     "KeyValue" => "1:key:str 2:value:AnyValue 3:keyStrindex:uint"
     "AnyValue" =>
-      "1:stringValue:str 2:boolValue:bool 3:intValue:int64 4:doubleValue:double 5:arrayValue:ArrayValue 6:kvlistValue:KeyValueList 7:bytesValue:bytes 8:stringValueStrindex:uint"
+      "1:stringValue:str! 2:boolValue:bool! 3:intValue:int64! 4:doubleValue:double! 5:arrayValue:ArrayValue! 6:kvlistValue:KeyValueList! 7:bytesValue:bytes! 8:stringValueStrindex:uint!"
     "ArrayValue" => "1:values:AnyValue[]"
     "KeyValueList" => "1:values:KeyValue[]"
     "Log" =>
@@ -66,7 +67,7 @@ fn build_descriptor(kind : String) -> Array[Field] {
       "1:traceId:id 2:spanId:id 3:traceState:str 4:attributes:KeyValue[] 5:droppedAttributesCount:uint 6:flags:fixed32"
     "Status" => "2:message:str 3:code:uint"
     "Metric" =>
-      "1:name:str 2:description:str 3:unit:str 12:metadata:KeyValue[] 5:gauge:Gauge 7:sum:Sum 9:histogram:Histogram 10:exponentialHistogram:ExponentialHistogram 11:summary:Summary"
+      "1:name:str 2:description:str 3:unit:str 12:metadata:KeyValue[] 5:gauge:Gauge! 7:sum:Sum! 9:histogram:Histogram! 10:exponentialHistogram:ExponentialHistogram! 11:summary:Summary!"
     "Gauge" => "1:dataPoints:NumberPoint[]"
     "Sum" =>
       "1:dataPoints:NumberPoint[] 2:aggregationTemporality:uint 3:isMonotonic:bool"
@@ -75,7 +76,7 @@ fn build_descriptor(kind : String) -> Array[Field] {
       "1:dataPoints:ExponentialPoint[] 2:aggregationTemporality:uint"
     "Summary" => "1:dataPoints:SummaryPoint[]"
     "NumberPoint" =>
-      "7:attributes:KeyValue[] 2:startTimeUnixNano:f64 3:timeUnixNano:f64 5:exemplars:Exemplar[] 8:flags:uint 4:asDouble:double 6:asInt:sf64"
+      "7:attributes:KeyValue[] 2:startTimeUnixNano:f64 3:timeUnixNano:f64 5:exemplars:Exemplar[] 8:flags:uint 4:asDouble:double! 6:asInt:sf64!"
     "HistogramPoint" =>
       "9:attributes:KeyValue[] 2:startTimeUnixNano:f64 3:timeUnixNano:f64 4:count:f64 5:sum:double 6:bucketCounts:packed64 7:explicitBounds:packedDouble 8:exemplars:Exemplar[] 10:flags:uint 11:min:double 12:max:double"
     "ExponentialPoint" =>
@@ -85,7 +86,7 @@ fn build_descriptor(kind : String) -> Array[Field] {
       "7:attributes:KeyValue[] 2:startTimeUnixNano:f64 3:timeUnixNano:f64 4:count:f64 5:sum:double 6:quantileValues:Quantile[] 8:flags:uint"
     "Quantile" => "1:quantile:double 2:value:double"
     "Exemplar" =>
-      "7:filteredAttributes:KeyValue[] 2:timeUnixNano:f64 4:spanId:id 5:traceId:id 3:asDouble:double 6:asInt:sf64"
+      "7:filteredAttributes:KeyValue[] 2:timeUnixNano:f64 4:spanId:id 5:traceId:id 3:asDouble:double! 6:asInt:sf64!"
     _ => ""
   }
   if spec.is_empty() {
@@ -99,7 +100,8 @@ fn build_descriptor(kind : String) -> Array[Field] {
     for c in parts[0] {
       number = number * 10 + c.to_int() - 48
     }
-    let k = parts[2].to_owned()
+    let spec_kind = parts[2].to_owned()
+    let k = spec_kind.replace(old="!", new="")
     Field::{
       number,
       name: parts[1].to_owned(),
@@ -109,6 +111,7 @@ fn build_descriptor(kind : String) -> Array[Field] {
         k
       },
       repeated: k.has_suffix("[]"),
+      oneof: spec_kind.has_suffix("!"),
     }
   })
   .collect()
@@ -135,17 +138,7 @@ fn wire_type(kind : String) -> Int32 {
 
 ///|
 fn oneof(kind : String, name : String) -> Bool {
-  kind == "AnyValue" ||
-  (
-    kind == "Metric" &&
-    ["gauge", "sum", "histogram", "exponentialHistogram", "summary"].contains(
-      name,
-    )
-  ) ||
-  (
-    (kind == "NumberPoint" || kind == "Exemplar") &&
-    (name == "asDouble" || name == "asInt")
-  )
+  descriptor(kind).any(f => f.name == name && f.oneof)
 }
 
 ///|
