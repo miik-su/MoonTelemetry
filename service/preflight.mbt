@@ -5,11 +5,12 @@ pub async fn Runtime::preflight(self : Runtime) -> Unit {
   let paths : Map[String, String] = Map([])
   for id, spec in self.config.exporters {
     let file = match spec {
-      File(path) => Some((path, 1))
-      RotatingFile(path~, max_files~, ..) => Some((path, max_files))
+      File(path) => Some((path, 1, 0))
+      RotatingFile(path~, max_files~, max_bytes~) =>
+        Some((path, max_files, max_bytes))
       _ => None
     }
-    if file is Some((path, count)) {
+    if file is Some((path, count, limit)) {
       for i in 0..<count {
         let path = @config.file_path(path + (if i == 0 { "" } else { ".\{i}" }))
         let pieces = path.split("/").map(s => s.to_owned()).collect()
@@ -24,6 +25,11 @@ pub async fn Runtime::preflight(self : Runtime) -> Unit {
           if @fs.kind(path, follow_symlink=false) != Regular {
             raise @component.Configuration(
               "exporter output must be a regular non-symlink file: " + id,
+            )
+          }
+          if limit > 0 && @fs.file_size(path) > limit.to_int64() {
+            raise @component.Configuration(
+              "existing exporter file exceeds rotation limit: " + id,
             )
           }
         }

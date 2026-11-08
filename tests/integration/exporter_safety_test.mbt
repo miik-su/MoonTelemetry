@@ -22,6 +22,40 @@ async test "file rotation enforces byte and retention limits" {
 }
 
 ///|
+async test "preflight rejects oversized retained archives without mutating files" {
+  let dir = @fs.tmpdir(prefix="moontelemetry-preflight-")
+  defer @fs.rmdir(dir, recursive=true)
+  let path = dir + "/out.jsonl"
+  @fs.write_file(path + ".1", "oversized")
+  let source : Json = {
+    "receivers": { "otlp": {} },
+    "exporters": {
+      "file": { "path": Json::string(path), "max_bytes": 4, "max_files": 2 },
+    },
+    "service": {
+      "pipelines": {
+        "logs": {
+          "receivers": ["otlp"],
+          "processors": [],
+          "exporters": ["file"],
+        },
+      },
+    },
+  }
+  let runtime = @service.Runtime::new(@config.parse(source.stringify()))
+  assert_true(
+    try {
+      runtime.preflight()
+      false
+    } catch {
+      _ => true
+    },
+  )
+  assert_eq(@fs.read_file(path + ".1").text(), "oversized")
+  assert_false(@fs.exists(path))
+}
+
+///|
 async test "file failures report safe categories and rejected records" {
   let dir = @fs.tmpdir(prefix="moontelemetry-file-errors-")
   defer @fs.rmdir(dir, recursive=true)

@@ -21,6 +21,7 @@ pub struct Config {
   limits : @data.Limits
   response_limits : Map[String, Int32]
   memory_budget_bytes : Int32
+  file_budget_bytes : Int32
   request_memory_budget_bytes : Int32
   max_total_connections : Int32
   receivers : Map[String, ReceiverSpec]

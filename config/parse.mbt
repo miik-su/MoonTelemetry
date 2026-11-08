@@ -469,7 +469,7 @@ pub fn parse(
     service,
     [
       "pipelines", "queue_capacity", "queue_bytes", "shutdown_timeout_ms", "memory_budget_bytes",
-      "request_memory_budget_bytes", "max_total_connections",
+      "request_memory_budget_bytes", "max_total_connections", "file_budget_bytes",
     ],
     "service",
   )
@@ -557,6 +557,22 @@ pub fn parse(
   let memory_budget_bytes = number(
     service, "memory_budget_bytes", 1073741824, "service",
   )
+  let file_budget_bytes = number(
+    service,
+    "file_budget_bytes",
+    1073741824,
+    "service",
+    max=2147483647,
+  )
+  let mut retained_files = 0L
+  for _, spec in exporters {
+    if spec is RotatingFile(max_bytes~, max_files~, ..) {
+      retained_files += max_bytes.to_int64() * max_files.to_int64()
+    }
+  }
+  if retained_files > file_budget_bytes.to_int64() {
+    error("service.file_budget_bytes", "combined file retention exceeds budget")
+  }
   let request_memory_budget_bytes = number(
     service, "request_memory_budget_bytes", 268435456, "service",
   )
@@ -585,6 +601,7 @@ pub fn parse(
   }
   {
     memory_budget_bytes,
+    file_budget_bytes,
     limits,
     response_limits,
     request_memory_budget_bytes,
