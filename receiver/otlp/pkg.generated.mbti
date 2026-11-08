@@ -3,6 +3,7 @@ package "miik-su/moontelemetry/receiver/otlp"
 
 import {
   "miik-su/moontelemetry/config",
+  "miik-su/moontelemetry/core/component",
   "miik-su/moontelemetry/core/data",
   "moonbitlang/async/http",
   "moonbitlang/async/io",
@@ -18,7 +19,7 @@ pub async fn read_body(&@io.Reader, Int32) -> Bytes
 
 pub fn route(String) -> @data.Signal?
 
-pub async fn serve(@http.Server, @config.ReceiverSpec, (@data.Envelope) -> Int32 raise, health? : () -> Json) -> Unit
+pub async fn serve(@http.Server, @config.ReceiverSpec, (@data.Envelope) -> Int32 raise, health? : () -> Json, budget? : @component.MemoryBudget, requests? : @component.MemoryBudget) -> Unit
 
 // Errors
 pub(all) suberror RequestError {

@@ -34,6 +34,9 @@ pub struct PipelineSpec {
 
 ///|
 pub struct Config {
+  memory_budget_bytes : Int32
+  request_memory_budget_bytes : Int32
+  max_total_connections : Int32
   receivers : Map[String, ReceiverSpec]
   exporters : Map[String, ExporterSpec]
   pipelines : Array[PipelineSpec]

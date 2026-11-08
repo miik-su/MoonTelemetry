@@ -12,6 +12,9 @@ struct Route {
 
 ///|
 pub struct Runtime {
+  budget : @component.MemoryBudget
+  requests : @component.MemoryBudget
+  workspace : Int64
   config : @config.Config
   routes : Array[Route]
   lifecycle : @component.Lifecycle
@@ -21,15 +24,24 @@ pub struct Runtime {
 
 ///|
 pub fn Runtime::new(config : @config.Config) -> Runtime raise {
+  let budget = @component.MemoryBudget::new(
+    config.memory_budget_bytes.to_int64(),
+  )
+  let requests = @component.MemoryBudget::new(
+    config.request_memory_budget_bytes.to_int64(),
+  )
+  let mut workspace = 0L
   let destinations = Map([])
   for id, spec in config.exporters {
     destinations[id] = @exporter.Destination::new(spec)
   }
   let routes = []
   for spec in config.pipelines {
+    workspace += config.queue_bytes.to_int64() * 3L
     let mut batch = None
     for p in spec.processors {
       if p is Batch(size~, timeout_ms~, max_bytes~) {
+        workspace += max_bytes.to_int64() * 3L
         guard max_bytes <= config.queue_bytes else {
           raise @component.Configuration(
             "batch max_bytes must not exceed service.queue_bytes",
@@ -45,6 +57,7 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
         @pipeline.Queue::new(
           capacity=config.queue_capacity,
           max_bytes=config.queue_bytes,
+          budget~,
         ),
         destinations[id],
       )
@@ -54,6 +67,7 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
       input: @pipeline.Queue::new(
         capacity=config.queue_capacity,
         max_bytes=config.queue_bytes,
+        budget~,
       ),
       outputs,
       batch,
@@ -63,7 +77,16 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
       dropped: 0L,
     })
   }
+  if workspace + config.request_memory_budget_bytes.to_int64() >=
+    config.memory_budget_bytes.to_int64() {
+    raise @component.Configuration(
+      "global budget must cover workspaces, request budget and queue headroom",
+    )
+  }
   {
+    budget,
+    requests,
+    workspace,
     config,
     routes,
     lifecycle: @component.Lifecycle::new(),
@@ -110,6 +133,8 @@ pub fn Runtime::health(self : Runtime) -> Json {
         "draining"
       },
     ),
+    "logicalMemoryUsed": Json::string(self.budget.used().to_string()),
+    "requestMemoryUsed": Json::string(self.requests.used().to_string()),
     "pipelines": Json::array(
       self.routes.map(r => {
         (
@@ -239,6 +264,12 @@ async fn workers(runtime : Runtime) -> Unit {
 pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
   self.lifecycle.start()
   errdefer self.lifecycle.close()
+  if !self.budget.reserve(self.workspace) {
+    raise @component.Configuration(
+      "global budget cannot cover pipeline workspaces",
+    )
+  }
+  defer self.budget.release(self.workspace)
   let servers : Array[@http.Server] = []
   defer (for server in servers {
     server.close()
@@ -264,6 +295,8 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
                 pair.1,
                 input => self.submit(pair.0, input),
                 health=() => self.health(),
+                budget=self.budget,
+                requests=self.requests,
               )
             })
           }

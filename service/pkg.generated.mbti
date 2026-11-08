@@ -16,6 +16,9 @@ import {
 type Route
 
 pub struct Runtime {
+  budget : @component.MemoryBudget
+  requests : @component.MemoryBudget
+  workspace : Int64
   config : @config.Config
   routes : Array[Route]
   lifecycle : @component.Lifecycle

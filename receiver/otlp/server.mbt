@@ -112,6 +112,8 @@ async fn handle(
   cfg : @config.ReceiverSpec,
   consume : (@data.Envelope) -> Int32 raise,
   health : () -> Json,
+  budget : @component.MemoryBudget,
+  requests : @component.MemoryBudget,
 ) -> Unit {
   let request = conn.read_request()
   if request.meth == Get && request.path == "/health" {
@@ -147,6 +149,18 @@ async fn handle(
     failure(conn, 415, "unsupported content encoding", json)
     return
   }
+  // Reserve before allocation, covering compressed, expanded and decode buffers.
+  let charge = cfg.max_body_bytes.to_int64() * 3L
+  if !requests.reserve(charge) {
+    failure(conn, 503, "request memory budget exhausted", json)
+    return
+  }
+  defer requests.release(charge)
+  if !budget.reserve(charge) {
+    failure(conn, 503, "global memory budget exhausted", json)
+    return
+  }
+  defer budget.release(charge)
   let body = try {
     let bytes = read_body(conn, cfg.max_body_bytes)
     if encoding == "gzip" {
@@ -203,6 +217,8 @@ pub async fn serve(
   cfg : @config.ReceiverSpec,
   consume : (@data.Envelope) -> Int32 raise,
   health~ : () -> Json = () => ({ "status": "ready" } : Json),
+  budget~ : @component.MemoryBudget = @component.MemoryBudget::new(1073741824L),
+  requests~ : @component.MemoryBudget = @component.MemoryBudget::new(268435456L),
 ) -> Unit {
   let permits = @async.Semaphore(cfg.max_connections)
   @async.with_task_group(async fn(group) {
@@ -216,7 +232,7 @@ pub async fn serve(
         defer permits.release()
         defer conn.close()
         @async.with_timeout(cfg.timeout_ms, async fn() {
-          handle(conn, cfg, consume, health)
+          handle(conn, cfg, consume, health, budget, requests)
         }) catch {
           _ => ()
         }

@@ -292,7 +292,10 @@ pub fn parse(
   let service = object(root.get("service").unwrap_or(Json::null()), "service")
   fields(
     service,
-    ["pipelines", "queue_capacity", "queue_bytes", "shutdown_timeout_ms"],
+    [
+      "pipelines", "queue_capacity", "queue_bytes", "shutdown_timeout_ms", "memory_budget_bytes",
+      "request_memory_budget_bytes", "max_total_connections",
+    ],
     "service",
   )
   let pipelines = []
@@ -350,7 +353,39 @@ pub fn parse(
   if pipelines.is_empty() {
     error("service.pipelines", "at least one pipeline required")
   }
+  let memory_budget_bytes = number(
+    service, "memory_budget_bytes", 1073741824, "service",
+  )
+  let request_memory_budget_bytes = number(
+    service, "request_memory_budget_bytes", 268435456, "service",
+  )
+  let max_total_connections = number(
+    service,
+    "max_total_connections",
+    1024,
+    "service",
+    max=65536,
+  )
+  if request_memory_budget_bytes > memory_budget_bytes {
+    error("service", "request budget exceeds global budget")
+  }
+  let mut connections = 0L
+  for id, r in receivers {
+    if pipelines.any(p => p.receivers.contains(id)) {
+      connections += r.max_connections.to_int64()
+      if r.max_body_bytes.to_int64() * 3L >
+        request_memory_budget_bytes.to_int64() {
+        error("receivers." + id, "request budget must cover three body buffers")
+      }
+    }
+  }
+  if connections > max_total_connections.to_int64() {
+    error("service", "total receiver connection limit exceeded")
+  }
   {
+    memory_budget_bytes,
+    request_memory_budget_bytes,
+    max_total_connections,
     receivers,
     exporters,
     pipelines,

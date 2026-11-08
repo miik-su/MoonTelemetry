@@ -47,5 +47,8 @@ async test "real HTTP logs reach JSONL after timed batch drain" {
   })
   let text = @fs.read_file(path).text()
   assert_true(text.contains("drain-me"))
+  assert_true(
+    runtime.health().stringify().contains("\"logicalMemoryUsed\":\"0\""),
+  )
   assert_true(runtime.health().stringify().contains("\"delivered\":\"1\""))
 }
