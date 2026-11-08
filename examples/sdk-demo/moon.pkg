@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/async",
+  "moonbit-community/opentelemetry" @otel,
+  "moonbit-community/opentelemetry/sdk",
+  "moonbit-community/opentelemetry/sdk/resource",
+  "moonbit-community/opentelemetry/otlp",
+}
+
+pkgtype(kind: "executable")

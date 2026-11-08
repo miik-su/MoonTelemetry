@@ -1,0 +1,8 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "miik-su/moontelemetry/core/data",
+  "miik-su/moontelemetry/processor",
+}
+
+pkgtype(kind: "executable")
