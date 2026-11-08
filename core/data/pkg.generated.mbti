@@ -37,6 +37,7 @@ pub fn Envelope::count(Self) -> Int32
 pub fn Envelope::encode(Self, json~ : Bool) -> Bytes raise
 pub fn Envelope::signal(Self) -> Signal
 pub fn Envelope::to_json(Self) -> Json raise DataError
+pub fn Envelope::wire_size(Self) -> Int64
 
 pub(all) struct Limits {
   max_records_per_request : Int32

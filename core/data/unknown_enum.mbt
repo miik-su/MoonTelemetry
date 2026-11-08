@@ -125,6 +125,15 @@ fn wire_json(bytes : BytesView, kind : String) -> Json raise {
         }
         out[f.name] = Json::array(previous)
       } else {
+        // Protobuf oneofs use the last field on the wire, including fallback
+        // payloads with future enum values. Keep the JSON projection unambiguous.
+        if oneof(kind, f.name) {
+          for previous in descriptor(kind) {
+            if previous.name != f.name && oneof(kind, previous.name) {
+              out.remove(previous.name)
+            }
+          }
+        }
         out[f.name] = value
       }
     }
