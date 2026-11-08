@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "miik-su/moontelemetry/service"
+
+import {
+  "miik-su/moontelemetry/config",
+  "miik-su/moontelemetry/core/component",
+  "miik-su/moontelemetry/core/data",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+type Route
+
+pub struct Runtime {
+  config : @config.Config
+  routes : Array[Route]
+  lifecycle : @component.Lifecycle
+  mut draining : Bool
+}
+pub fn Runtime::health(Self) -> Json
+pub fn Runtime::new(@config.Config) -> Self raise
+pub async fn Runtime::run(Self, stop_after_ms? : Int32) -> Unit
+pub fn Runtime::submit(Self, String, @data.Envelope) -> Int32 raise
+
+// Type aliases
+
+// Traits

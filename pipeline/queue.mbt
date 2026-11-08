@@ -86,7 +86,10 @@ pub fn Queue::push(self : Queue, p : Packet) -> Bool {
 ///|
 // Single worker per queue. Budget stays charged during network retries.
 pub fn Queue::take(self : Queue) -> Packet? {
-  if self.length == 0 || self.inflight is Some(_) {
+  if self.inflight is Some(p) {
+    return Some(p)
+  }
+  if self.length == 0 {
     return None
   }
   let p = self.slots[self.head]
@@ -126,6 +129,16 @@ pub fn Queue::stats(self : Queue) -> Json {
     "dropped": Json::string(self.dropped.to_string()),
     "queuedBatches": Json::number(self.length.to_double()),
     "retainedBytes": Json::number(self.bytes.to_double()),
+  }
+}
+
+///|
+pub fn Queue::discard_all(self : Queue) -> Unit {
+  for ;; {
+    match self.take() {
+      Some(p) => self.finish(rejected=p.count)
+      None => break
+    }
   }
 }
 

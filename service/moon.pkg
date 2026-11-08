@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/socket",
+  "miik-su/moontelemetry/core/data",
+  "miik-su/moontelemetry/core/component",
+  "miik-su/moontelemetry/config",
+  "miik-su/moontelemetry/processor",
+  "miik-su/moontelemetry/pipeline",
+  "miik-su/moontelemetry/exporter",
+  "miik-su/moontelemetry/receiver/otlp",
+}
+
+import {
+  "moonbitlang/async/fs",
+} for "test"

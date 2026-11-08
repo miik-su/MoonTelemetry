@@ -40,6 +40,7 @@ pub struct Queue {
   mut dropped : Int64
 }
 pub fn Queue::can_accept(Self, Packet) -> Bool
+pub fn Queue::discard_all(Self) -> Unit
 pub fn Queue::empty(Self) -> Bool
 pub fn Queue::finish(Self, rejected? : Int32) -> Unit
 pub fn Queue::new(capacity~ : Int32, max_bytes~ : Int32) -> Self raise @component.CollectorError
