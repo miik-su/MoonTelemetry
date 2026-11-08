@@ -1,0 +1,36 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "miik-su/moontelemetry/exporter"
+
+import {
+  "miik-su/moontelemetry/config",
+  "miik-su/moontelemetry/core/data",
+  "moonbitlang/async",
+  "moonbitlang/async/io",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub async fn read_bounded(&@io.Reader, Int32) -> Bytes
+
+pub fn retry_delay(Int32) -> Int32
+
+pub fn retryable(Int32) -> Bool
+
+// Errors
+pub(all) suberror ExportError {
+  Permanent(Int32)
+  Transient
+  InvalidResponse
+} derive(@debug.Debug)
+
+// Types and methods
+pub struct Destination {
+  spec : @config.ExporterSpec
+  lock : @async.Mutex
+}
+pub fn Destination::new(@config.ExporterSpec) -> Self
+pub async fn Destination::send(Self, @data.Envelope) -> Int32
+
+// Type aliases
+
+// Traits

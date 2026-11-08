@@ -10,6 +10,10 @@ pub fn decode(Signal, Bytes, json~ : Bool) -> Envelope raise
 
 pub fn from_json(Signal, Json) -> Envelope raise
 
+pub fn rejected(Signal, Bytes, json~ : Bool) -> Int64 raise
+
+pub fn response(Signal, rejected~ : Int32, message? : String, json~ : Bool) -> Bytes raise
+
 pub fn signal_from_name(String) -> Signal?
 
 pub fn validate_wire(Bytes) -> Unit raise DataError
