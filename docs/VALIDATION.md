@@ -6,14 +6,14 @@ no full-suite test command was used.
 
 | Target | Focused evidence |
 | --- | --- |
-| core/data | 15 tests: exact integers, oneofs, IDs, future enums, packed/unpacked, response boundaries, deterministic 6,000 malformed-byte decode attempts |
+| core/data | 16 tests: exact integers, oneofs, repeated singular IDs, future enums, packed/unpacked, response boundaries, deterministic 6,000 malformed-byte decode attempts |
 | core/component / pipeline | Reservation rollback, in-flight accounting, fanout isolation and lifecycle |
 | processor | Transform order, nested redaction/allowlist/removal, mixed future-enum batches |
-| config | Six tests: references, endpoint authority, source/auth policy, memory/file limits, duplicates and environment expansion |
+| config | Seven tests: references, endpoints, auth policy, budgets, duplicates, environment and 600 deterministic configuration mutations |
 | exporter | Retry classification, partial responses and Retry-After seconds/date |
 | extensions/memory | Native RSS observation |
-| service / tests/integration | 16 integration tests: HTTP signal/encoding matrix, gzip boundaries, slow body, auth/health/source controls, cancellation, destination isolation, plugin deadlines, file failures/oversize archives, safe processor failure metadata and shutdown accounting |
-| tools | Generated version consistency and 40 upstream descriptor checks |
+| service / tests/integration | 18 integration tests: HTTP signal/encoding matrix, gzip boundaries and 300 mutations/member cap, slow body, auth/health/source controls, cancellation, destination isolation, plugin deadlines, file failures/oversize archives, safe processor failure metadata and shutdown accounting |
+| tools | Generated version consistency and 40 upstream descriptors checked for field numbers/names, exact scalar/packed readers, repetition and oneofs |
 
 moon check, moon fmt and moon info pass locally. GitHub Actions runs key checks
 on Ubuntu and Windows. The main run for commit 4747559 passed both platforms:

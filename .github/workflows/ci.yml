@@ -27,11 +27,14 @@ jobs:
       - run: moon run tools/generate_metadata.mbtx
       - run: git diff --exit-code -- core/component/version.generated.mbt
       - run: moon info
+      - run: git diff --exit-code -- '**/pkg.generated.mbti'
       - run: moon test --target native -p core/component
       - run: moon test --target native -p pipeline
       - run: moon test --target native -p extensions/memory
       - run: moon test --target native -p core/data
       - run: moon test --target native -p processor
       - run: moon test --target native -p config
+      - run: moon test --target native -p exporter
+      - run: moon test --target native -p service
       - run: moon test --target native -p tests/integration
       - run: moon run cmd/moontelemetry --target native -- validate --config examples/collector.json
