@@ -13,3 +13,5 @@ import {
   "miik-su/moontelemetry/core/component",
   "miik-su/moontelemetry/processor",
 } for "test"
+
+max_concurrent_tests = 1

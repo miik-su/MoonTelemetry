@@ -5,12 +5,15 @@ import {
   "miik-su/moontelemetry/config",
   "miik-su/moontelemetry/core/data",
   "moonbitlang/async",
+  "moonbitlang/async/http",
   "moonbitlang/async/io",
   "moonbitlang/core/debug",
 }
 
 // Values
 pub async fn read_bounded(&@io.Reader, Int32) -> Bytes
+
+pub fn retry_after(String) -> Int32
 
 pub fn retry_delay(Int32) -> Int32
 
@@ -19,7 +22,7 @@ pub fn retryable(Int32) -> Bool
 // Errors
 pub(all) suberror ExportError {
   Permanent(Int32)
-  Transient
+  Transient(Int32)
   InvalidResponse
 } derive(@debug.Debug)
 pub fn ExportError::to_repr(Self) -> @debug.Repr
@@ -28,6 +31,8 @@ pub fn ExportError::to_repr(Self) -> @debug.Repr
 pub struct Destination {
   spec : @config.ExporterSpec
   lock : @async.Mutex
+  mut client : @http.Client?
+  mut closed : Bool
 }
 pub async fn Destination::close(Self) -> Unit
 pub fn Destination::new(@config.ExporterSpec) -> Self

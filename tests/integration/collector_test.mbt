@@ -129,7 +129,17 @@ async test "503 retries but successful partial export does not retry" {
       server.run_forever(async fn(_, reader, conn) {
         let _ = reader.read_all()
         calls[0] += 1
-        conn.send_response(if calls[0] == 1 { 503 } else { 200 }, "test")
+        conn.send_response(
+          if calls[0] == 1 {
+            503
+          } else {
+            200
+          },
+          "test",
+          extra_headers=Map::from_array([
+            (@http.CaseInsensitiveString("Content-Type"), "application/json"),
+          ]),
+        )
         if calls[0] > 1 {
           conn.write(@data.response(Logs, rejected=1, json=true))
         }

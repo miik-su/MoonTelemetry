@@ -11,6 +11,7 @@ pub(all) enum ExporterSpec {
   Plugin(&@component.Exporter)
   Debug(detailed~ : Bool)
   File(String)
+  RotatingFile(path~ : String, max_bytes~ : Int32, max_files~ : Int32)
   Otlp(endpoint~ : String, json~ : Bool, timeout_ms~ : Int32, retries~ : Int32)
 }
 

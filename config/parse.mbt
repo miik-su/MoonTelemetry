@@ -261,12 +261,16 @@ pub fn parse(
         Debug(detailed=boolean(m, "detailed", false, p))
       }
       "file" => {
-        fields(m, ["path"], p)
+        fields(m, ["path", "max_bytes", "max_files"], p)
         let path = text(m, "path", "", p)
         if path.is_empty() {
           error(p, "path required")
         }
-        File(path)
+        RotatingFile(
+          path=file_path(path),
+          max_bytes=number(m, "max_bytes", 67108864, p),
+          max_files=number(m, "max_files", 5, p, max=100),
+        )
       }
       "otlp" => {
         fields(m, ["endpoint", "json", "timeout_ms", "retries"], p)
@@ -345,6 +349,31 @@ pub fn parse(
   }
   if pipelines.is_empty() {
     error("service.pipelines", "at least one pipeline required")
+  }
+  let file_paths : Map[String, Bool] = Map([])
+  for _, spec in exporters {
+    if spec is RotatingFile(path~, ..) {
+      if file_paths.contains(path) {
+        error("exporters", "duplicate normalized file path")
+      }
+      file_paths[path] = true
+    }
+  }
+  let listeners : Array[(String, Int32)] = []
+  for id, r in receivers {
+    if pipelines.any(p => p.receivers.contains(id)) {
+      for previous in listeners {
+        if previous.1 == r.port &&
+          (
+            previous.0 == r.host.to_lower() ||
+            ["0.0.0.0", "::", "[::]"].contains(previous.0) ||
+            ["0.0.0.0", "::", "[::]"].contains(r.host)
+          ) {
+          error("receivers", "overlapping listener endpoints")
+        }
+      }
+      listeners.push((r.host.to_lower(), r.port))
+    }
   }
   let memory_budget_bytes = number(
     service, "memory_budget_bytes", 1073741824, "service",

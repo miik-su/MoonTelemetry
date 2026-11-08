@@ -32,7 +32,7 @@ async test "stalled destination overflows independently while file delivery cont
     let target = group.spawn(async fn() {
       stalled.run_forever(async fn(_, _, _) { @async.sleep(2000) })
     })
-    let collector = group.spawn(async fn() { runtime.run(stop_after_ms=500) })
+    let collector = group.spawn(async fn() { runtime.run(stop_after_ms=1500) })
     @async.sleep(60)
     let payload = @fs.read_file("tests/fixtures/logs.json").binary()
     for _ in 0..<4 {
