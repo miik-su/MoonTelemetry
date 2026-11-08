@@ -9,6 +9,8 @@
   configurable response limits and per-plugin close deadlines.
 - Endpoint/listener/file collision validation, bounded JSONL rotation, authenticated
   ingress/health, source allowlists, slow-body protection and nested redaction.
+- Combined file-retention budgets, Windows path-alias guards, oversized archive
+  preflight and component-specific failure accounting without exception payloads.
 - Component catalog/version generation, upstream descriptor consistency checks,
   deterministic malformed-input regression tests and a Collector-level benchmark.
 

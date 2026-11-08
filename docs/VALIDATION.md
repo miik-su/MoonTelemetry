@@ -9,10 +9,10 @@ no full-suite test command was used.
 | core/data | 15 tests: exact integers, oneofs, IDs, future enums, packed/unpacked, response boundaries, deterministic 6,000 malformed-byte decode attempts |
 | core/component / pipeline | Reservation rollback, in-flight accounting, fanout isolation and lifecycle |
 | processor | Transform order, nested redaction/allowlist/removal, mixed future-enum batches |
-| config | References, endpoint authority, source/auth policy, limits, duplicates and environment expansion |
+| config | Six tests: references, endpoint authority, source/auth policy, memory/file limits, duplicates and environment expansion |
 | exporter | Retry classification, partial responses and Retry-After seconds/date |
 | extensions/memory | Native RSS observation |
-| service / tests/integration | HTTP signal/encoding matrix, gzip expansion/concatenation/truncation, slow body, auth/health/source controls, request cancellation, destination isolation, plugin close deadlines, shutdown accounting |
+| service / tests/integration | 16 integration tests: HTTP signal/encoding matrix, gzip boundaries, slow body, auth/health/source controls, cancellation, destination isolation, plugin deadlines, file failures/oversize archives, safe processor failure metadata and shutdown accounting |
 | tools | Generated version consistency and 40 upstream descriptor checks |
 
 moon check, moon fmt and moon info pass locally. GitHub Actions runs key checks

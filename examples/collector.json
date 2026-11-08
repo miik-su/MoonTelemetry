@@ -1,21 +1,22 @@
 {
   "receivers": { "otlp": { "host": "127.0.0.1", "port": 4318 } },
   "processors": {
-    "memory_limiter": { "max_bytes": 8388608 },
+    "payload_size_guard": { "max_bytes": 8388608 },
     "resource": { "actions": [{ "key": "deployment.environment", "value": { "stringValue": "development" }, "action": "upsert" }] },
-    "attributes": { "actions": [{ "key": "authorization", "action": "delete" }] },
+    "redaction": { "mode": "mask", "body": false },
     "filter": { "key": "drop", "equals": { "boolValue": true } },
     "batch": { "size": 512, "timeout_ms": 1000, "max_bytes": 16777216 }
   },
-  "exporters": { "debug": { "detailed": false }, "file": { "path": "telemetry.jsonl" } },
+  "exporters": { "debug": { "detailed": false }, "file": { "path": "telemetry.jsonl", "max_bytes": 67108864, "max_files": 5 } },
   "service": {
     "queue_capacity": 64,
     "queue_bytes": 33554432,
     "shutdown_timeout_ms": 30000,
+    "file_budget_bytes": 1073741824,
     "pipelines": {
-      "logs": { "receivers": ["otlp"], "processors": ["memory_limiter", "resource", "attributes", "filter", "batch"], "exporters": ["debug", "file"] },
-      "metrics": { "receivers": ["otlp"], "processors": ["memory_limiter", "resource", "attributes", "filter", "batch"], "exporters": ["debug", "file"] },
-      "traces": { "receivers": ["otlp"], "processors": ["memory_limiter", "resource", "attributes", "filter", "batch"], "exporters": ["debug", "file"] }
+      "logs": { "receivers": ["otlp"], "processors": ["payload_size_guard", "resource", "redaction", "filter", "batch"], "exporters": ["debug", "file"] },
+      "metrics": { "receivers": ["otlp"], "processors": ["payload_size_guard", "resource", "redaction", "filter", "batch"], "exporters": ["debug", "file"] },
+      "traces": { "receivers": ["otlp"], "processors": ["payload_size_guard", "resource", "redaction", "filter", "batch"], "exporters": ["debug", "file"] }
     }
   }
 }

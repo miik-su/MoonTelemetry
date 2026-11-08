@@ -76,6 +76,12 @@ current file. Rotation retains numbered archives and removes the oldest. A line
 larger than the size limit fails rather than violating it. Writes are not fsynced.
 Rotation bounds files managed by that destination, not the entire disk; monitor
 free space and keep output directories private.
+service.file_budget_bytes defaults to 1 GiB and caps the sum of configured
+max_bytes * max_files across independent file destinations (up to 2 GiB minus
+one byte when explicitly configured). Shared attachments count once. Preflight
+rejects existing current/archive files above their configured per-file limit
+without deleting or truncating them. Unrelated files and external writers are
+outside this retention contract; this is not a filesystem quota.
 
 Preflight resolves parent paths and rejects colliding destinations/archives,
 existing symlink/nonregular outputs and overlapping resolved listeners.

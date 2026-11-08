@@ -11,7 +11,7 @@ controls with focused regression evidence, not an independent security audit.
 | Export lifecycle | Persistent serialized destinations, bounded retries with Retry-After/jitter, separately bounded plugin close |
 | Configuration boundaries | Unused-component rejection, strict URL authority, resolved listener conflicts, output/rotation path preflight |
 | Privacy and exposure | Bearer ingress auth, source-IP restrictions, separate health auth, recursive redaction with case-insensitive keys, allowlist and removal |
-| Storage | Bounded per-file rotation/retention, oversize-line refusal and export failure accounting |
+| Storage | Global configured file-retention budget, per-file rotation, oversize-line/archive refusal and export failure accounting |
 | Observability | Native RSS independent of logical usage; receiver, processor, queue and destination counters with safe error categories |
 | Duplication and maintenance | Reused upstream models, descriptor consistency checker, shared component catalog, generated module/CLI version |
 | Governance | Security policy, contribution policy, third-party license/LLVM-exception notices, changelog and explicit experimental scope |
