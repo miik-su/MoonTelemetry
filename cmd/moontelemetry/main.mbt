@@ -7,17 +7,18 @@ async fn main {
       println(
         "moontelemetry <run|validate> --config <file.json> | version | components",
       )
-    Version => println("MoonTelemetry 0.1.0")
+    Version => println("MoonTelemetry " + @component.version())
     Components =>
-      println(
-        "receivers: otlp\nprocessors: memory_limiter, resource, attributes, filter, batch, redaction\nexporters: debug, file, otlp",
-      )
+      for item in @component.catalog() {
+        println(item.name + ": " + item.description)
+      }
     Validate(path) => {
       let config = @config.parse(
         @fs.read_file(path).text(),
         env=@env.get_env_var,
       )
-      let _ = @service.Runtime::new(config)
+      let runtime = @service.Runtime::new(config)
+      runtime.preflight()
       println("Configuration valid: \{config.pipelines.length()} pipeline(s)")
     }
     Run(path) => {

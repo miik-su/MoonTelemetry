@@ -1,4 +1,5 @@
 import {
+  "miik-su/moontelemetry/core/component",
   "moonbitlang/async",
   "moonbitlang/core/env",
   "moonbitlang/async/fs",

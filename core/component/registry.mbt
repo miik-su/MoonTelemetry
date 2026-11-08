@@ -96,15 +96,8 @@ pub fn Registry::contains(self : Registry, name : String, kind : Kind) -> Bool {
 ///|
 pub fn builtins() -> Registry {
   let r = Registry::new()
-  try! r.register("otlp", Receiver)
-  for
-    name in [
-      "attributes", "resource", "filter", "batch", "memory_limiter", "redaction",
-    ] {
-    try! r.register(name, Processor)
-  }
-  for name in ["debug", "file", "otlp"] {
-    try! r.register(name, Exporter)
+  for item in catalog() {
+    try! r.register(item.name, item.kind)
   }
   r
 }

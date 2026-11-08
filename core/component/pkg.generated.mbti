@@ -9,6 +9,10 @@ import {
 // Values
 pub fn builtins() -> Registry
 
+pub fn catalog() -> Array[ComponentDescriptor]
+
+pub fn version() -> String
+
 // Errors
 pub(all) suberror CollectorError {
   Configuration(String)
@@ -19,6 +23,12 @@ pub(all) suberror CollectorError {
 pub fn CollectorError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+pub struct ComponentDescriptor {
+  name : String
+  kind : Kind
+  description : String
+}
+
 pub struct Factories {
   processors : Map[String, (Json) -> &Processor raise]
   exporters : Map[String, (Json) -> &Exporter raise]

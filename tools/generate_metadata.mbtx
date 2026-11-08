@@ -1,0 +1,17 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/core/json",
+}
+----
+
+async fn main {
+  let module_text = @fs.read_file("moon.mod").text()
+  let lines = module_text.split("\n").filter(s => s.trim().has_prefix("version = ")).collect()
+  guard lines.length() == 1 else { abort("expected one module version") }
+  let value = lines[0].trim().to_owned().split(" = ").collect()[1].to_owned()
+  let version : String = @json.from_json(@json.parse(value))
+  let quoted = Json::string(version).stringify()
+  @fs.write_file("core/component/version.generated.mbt","///|\n// Generated from moon.mod by tools/generate_metadata.mbtx.\npub fn version() -> String {\n  "+quoted+"\n}\n")
+}

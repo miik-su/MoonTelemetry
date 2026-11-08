@@ -1,0 +1,73 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+}
+----
+
+async fn main {
+  let base = ".mooncakes/moonbit-community/opentelemetry/protocol/"
+  let definitions : Map[String,String] = Map([])
+  let json_models : Map[String,String] = Map([])
+  for file in ["common/v1", "resource/v1", "logs/v1", "metrics/v1", "trace/v1", "collector/logs/v1", "collector/metrics/v1", "collector/trace/v1"] {
+    let source = @fs.read_file(base+file+"/top.mbt").text()
+    for block in source.split("///|") {
+      let block = block.trim().to_owned()
+      let marker = "pub impl @protobuf.Read for "
+      if block.has_prefix(marker) {
+        let name = block[marker.length():].to_owned().split(" with ").next().unwrap().to_owned()
+        definitions[name] = block
+      }
+      let json_marker = "pub impl @json.FromJson for "
+      if block.has_prefix(json_marker) { let name = block[json_marker.length():].to_owned().split(" with ").next().unwrap().to_owned(); json_models[name] = block }
+    }
+  }
+  let aliases : Map[String,String] = {
+    "ResponseLogs":"ExportLogsServiceResponse", "ResponseMetrics":"ExportMetricsServiceResponse", "ResponseTraces":"ExportTraceServiceResponse",
+    "PartialLogs":"ExportLogsPartialSuccess", "PartialMetrics":"ExportMetricsPartialSuccess", "PartialTraces":"ExportTracePartialSuccess",
+    "Logs":"ExportLogsServiceRequest", "Metrics":"ExportMetricsServiceRequest", "Traces":"ExportTraceServiceRequest",
+    "Scope":"InstrumentationScope", "Log":"LogRecord", "Event":"Span_Event", "Link":"Span_Link",
+    "NumberPoint":"NumberDataPoint", "HistogramPoint":"HistogramDataPoint", "ExponentialPoint":"ExponentialHistogramDataPoint",
+    "Buckets":"ExponentialHistogramDataPoint_Buckets", "SummaryPoint":"SummaryDataPoint", "Quantile":"SummaryDataPoint_ValueAtQuantile",
+  }
+  let adapter = @fs.read_file("core/data/json_wire.mbt").text().split("\"").map(s => s.to_owned()).collect()
+  let mut checked = 0
+  for i in 1..<(adapter.length()-2) {
+    if adapter[i+1].contains("=>") && adapter[i+2].length()>2 && adapter[i+2][0] >= '1' && adapter[i+2][0] <= '9' && adapter[i+2].contains(":") {
+      let kind = adapter[i]
+      let spec = adapter[i+2]
+      let model = aliases.get(kind).unwrap_or(kind)
+      let decoder = definitions.get(model).unwrap_or("")
+      guard !decoder.is_empty() else { abort("missing upstream decoder: "+kind) }
+      let fields = spec.split(" ").collect()
+      for field in fields {
+        let parts = field.split(":").collect()
+        let number = parts[0].to_owned()
+        guard decoder.contains("("+number+", _) =>") else { abort("field number drift in "+kind+": "+number) }
+        guard json_models.get(model).unwrap_or("").contains("(\""+parts[1].to_owned()+"\",") else { abort("JSON field drift in "+kind) }
+        let branch = decoder.split("("+number+", _) =>").collect()[1].to_owned().split("\n        (").next().unwrap().to_owned()
+        let field_kind = parts[2].to_owned().replace(old="[]",new="")
+        let expected = match field_kind {
+          "str" => "read_string"
+          "bool" => "read_bool"
+          "int64" => "read_int64"
+          "sf64" => "read_sfixed64"
+          "f64" => "read_fixed64"
+          "fixed32" => "read_fixed32"
+          "double" => "read_double"
+          "sint" => "read_sint32"
+          "bytes" | "id" => "read_bytes"
+          "packed64" | "packedDouble" | "packedUInt" => "read_packed"
+          "uint" => "read_"
+          _ => "read_message"
+        }
+        guard branch.contains(expected) else { abort("wire type drift in "+kind+": "+number) }
+      }
+      let actual = decoder.split(", _) =>").count()-1
+      guard actual == fields.length() else { abort("field coverage drift in "+kind) }
+      checked += 1
+    }
+  }
+  guard checked >= 25 else { abort("descriptor extraction incomplete") }
+  println("Verified field-number coverage for \{checked} upstream message models")
+}
