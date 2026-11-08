@@ -1,38 +1,51 @@
 # Protocol compatibility
 
-Reference: https://opentelemetry.io/docs/specs/otlp/.
-Pinned generated models: moonbit-community/opentelemetry 0.1.8.
+Reference: [OTLP specification](https://opentelemetry.io/docs/specs/otlp/).
+Generated models are reused from `moonbit-community/opentelemetry` 0.1.8.
 
-- OTLP/HTTP JSON and protobuf on the three standard signal paths.
-- Gauge, Sum, Histogram, ExponentialHistogram and Summary metric data.
-- Resource, scope, typed attributes, events, links and correlation IDs.
-- Nanosecond timestamps and 64-bit numbers use decimal JSON strings. Numeric
-  JSON forms for 64-bit fields are currently rejected; send strings.
-- JSON enums use integers. Symbolic enum strings are rejected. The pinned SDK's
-  JSON exporter can emit symbolic enums; the runnable SDK demo therefore uses
-  HTTP/Protobuf. Standard numeric-enum SDK golden JSON fixtures are tested.
-- Trace/span IDs use hex in JSON and bytes in protobuf. Empty/absent IDs are
-  retained; nonempty IDs must have the specified length. Semantic validation
-  beyond length/encoding (for example all-zero IDs) is not implemented.
-- JSON unknown fields are ignored. Known fields with null are treated as absent.
-- Successful receiver acknowledgements mean admission to volatile input queues.
-  Configured filtering happens later and is recorded in pipeline statistics.
-- Exporters decode partial success and never retry that successful response.
-- gzip inputs are bounded both before and after decompression.
-- Nested protobuf messages have length, wire-type and depth guards (64 levels).
-  Packed metric arrays are supported; alternate unpacked repeated numeric wire
-  encodings are not supported by the pinned generated decoder.
-- Unknown binary fields are skipped but not preserved through transformations.
-- Responses use matching JSON/protobuf encodings; errors use google.rpc.Status
-  wire shape. Unsupported media/encoding returns 415; oversized bodies 413;
-  malformed OTLP 400; unavailable/full admission 503.
+| Area | Supported behavior |
+| --- | --- |
+| Transport | OTLP/HTTP JSON and protobuf on /v1/logs, /v1/metrics, /v1/traces; persistent connections |
+| Compression | gzip input, including up to 16 concatenated members; compressed and cumulative expanded sizes bounded |
+| Signals | Logs, traces, Gauge, Sum, Histogram, ExponentialHistogram and Summary |
+| Structure | Resource/scope attributes, events, links, exemplars, correlation IDs and typed AnyValue |
+| Integers | Decimal strings and exact integral JSON numeric/exponent forms for 64-bit fields; fractional or out-of-range values rejected |
+| Enums | Integer JSON enums; unknown positive and negative numbers retained through supported transforms and batching |
+| IDs | Hex JSON / binary protobuf; nonempty IDs require valid length and nonzero contents; spans and links require trace/span IDs |
+| Repeated primitives | Packed and unpacked protobuf input normalized before generated-model decoding |
+| JSON boundaries | Duplicate keys rejected; unknown fields ignored; known null fields treated as absent; oneof identity checked |
+| Responses | Matching JSON/protobuf success and google.rpc.Status errors; successful partial responses counted and never retried |
 
-The JSON adapter in core/data keeps field dispatch metadata to work around the
-pinned generated FromJson implementation's oneof inference. It converts JSON
-to the upstream binary model and normalizes enum/bytes output; it does not define
-a second set of telemetry structs. Review this adapter when upgrading models.
+Symbolic JSON enum names are rejected. The pinned SDK can emit these names, so
+the SDK demo uses protobuf; numeric-enum JSON fixtures exercise JSON ingestion.
+Unknown protobuf fields are skipped and are not preserved by transformations.
+The future-enum fallback preserves enum numbers, not arbitrary future schemas.
+Protobuf oneofs use the last member on the wire; JSON with multiple members of
+the same oneof is rejected.
 
-Not supported: gRPC, TLS termination at the receiver, authentication, YAML,
-profiles, persistent queues, Prometheus ingestion, Kafka, tail sampling,
-remote configuration and cluster coordination. Use a trusted reverse proxy for
-network exposure. HTTPS export uses the async library's trusted roots.
+Ingress acknowledgement means admission to volatile input queues. Filtering and
+export occur afterwards. Invalid input returns 400, unsupported media/encoding
+415, oversized input 413, unavailable/full admission 503, and missing configured
+signal routes 404. Authentication and source restrictions precede body reads.
+Slow headers, body stalls and total request duration are bounded.
+
+Successful outbound responses must match the selected media type and decode as
+the signal response. Empty protobuf is valid; empty JSON is invalid. Response
+reads default to 4 MiB and can be configured up to 64 MiB per exporter.
+429/502/503/504 and transport failures can retry. Retry-After supports seconds
+and IMF-fixdate, capped at one hour; retries include bounded random jitter.
+
+`core/data` contains field-dispatch metadata to adapt upstream JSON oneof
+inference and enum representation. It defines no duplicate telemetry structs.
+`tools/check_protocol_metadata.mbtx` checks 40 descriptors against the pinned
+generated source; review the adapter when upgrading dependencies.
+
+Real Go Collector 0.165.0 received all three signals in both HTTP encodings;
+see [validation](docs/VALIDATION.md). This covers the committed fixtures and
+does not establish full OTLP conformance certification.
+
+Not implemented: gRPC, receiver TLS termination, YAML, profiles, persistent
+queues, Prometheus ingestion, Kafka, tail sampling, remote configuration or
+cluster coordination. Bearer authentication and source-IP restrictions are
+available; use trusted TLS termination for remote deployment. HTTPS export
+uses the async library's trust roots.

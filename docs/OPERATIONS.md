@@ -1,56 +1,94 @@
 # Operations and delivery semantics
 
-## Shared resource budget (audit remediation)
+## Admission and memory
 
-Runtime queues now share `service.memory_budget_bytes` (default 1 GiB).
-Requests additionally share `request_memory_budget_bytes` (default 256 MiB).
-Processing/batch workspaces reserve capacity until shutdown; configured active
-receiver connection limits must total no more than `max_total_connections`
-(default 1024). Requests reserve three maximum-body buffers before allocation,
-including gzip workspace, and return 503 when either budget is exhausted.
-See [SECURITY_REMEDIATION.md](SECURITY_REMEDIATION.md) for exact accounting,
-fixed complexity guards, tests and outstanding audit tasks. These additions
-supersede the earlier per-queue-only budget description below.
+Start with examples/collector.json. Listener defaults are loopback, 32 MiB
+maximum body, 32 connections, 3 s header deadline, 3 s body-idle deadline,
+1 s processing deadline and 10 s total request deadline. Connections can serve
+multiple requests; idle headers eventually release connection permits.
+Synchronous parsing cannot be preempted mid-operation: complexity checks bound
+its work, and elapsed processing time is checked afterwards.
 
-Start with `examples/collector.json`. All addresses default to loopback; the
-collector does not supply an authentication layer. HTTP headers and body reads
-share a per-connection timeout; each connection serves one request and closes.
-The configured connection limit also bounds concurrent body/decompression work.
+service.memory_budget_bytes defaults to 1 GiB and request_memory_budget_bytes
+to 256 MiB. A request reserves three maximum-body buffers against both budgets
+before reading/decompression, even for a small request. Reservations release
+on success, failure, timeout and cancellation. max_total_connections defaults
+to 1024 and bounds configured listeners' combined connection limits.
 
-Each pipeline owns an input queue and one queue per exporter attachment. Input
-admission across matching pipelines is atomic: any full input rejects the
-request with 503. One worker per destination prevents retries from blocking
-other destinations. When an output queue is full, that destination's copy is
-dropped and `overflowDropped` increases. Healthy destinations continue.
+Each pipeline reserves three queue-byte limits for processing workspace;
+batching reserves three batch-byte limits. These reservations last until runtime
+shutdown. Validation requires workspace plus request budget to fit the global
+budget. Queues additionally charge retained serialized batches, including those
+in flight. Outbound encoding/response work reserves against the same budget.
 
-`GET /health` includes queue accepted/delivered/dropped counts, overflow drops,
-retained bytes, processor filtering and shutdown losses. Input delivered means
-processing completed, not remote durability. Exporter delivered means the target
-accepted the response (or a local append completed), not durable downstream
-storage. A file is opened, appended and closed per batch; it is not fsynced.
+These are conservative logical byte/workspace budgets, not a hard RSS ceiling.
+Decoded object overhead, allocation behavior and trusted plugins can consume
+additional memory. /health reports RSS independently where supported. Apply
+deployment-level memory/CPU limits and observe actual usage.
+payload_size_guard.max_bytes bounds a payload's serialized size; memory_limiter
+remains a compatibility alias for that processor.
 
-Queue byte limits include in-flight retrying batches. Batch limits cap retained
-serialized payloads; one request can exceed the record threshold but cannot
-exceed the byte budget. Transformations and decoded object overhead consume
-additional memory. These are finite serialized-data budgets, not a process RSS
-ceiling. Account for input/output queues, pending batches, transformations and
-max_connections * max_body_bytes when sizing the process.
+The limits section can lower max_records_per_request (100,000),
+max_attributes_per_record (256, applied to attribute containers),
+max_total_fields_per_request (1,000,000), and max_nesting_depth (64).
+These defaults are also the maximum permitted settings.
 
-Shutdown cancels listeners/workers, resumes retained queues, flushes batches and
-drains within shutdown_timeout_ms. On expiry outstanding data is counted as
-dropped. Custom exporter close calls have an additional bounded close window.
-The process can lose memory queues on crashes and can duplicate delivery after
-timeouts or interruption. There is no exactly-once or durable at-least-once
-guarantee. Native timed shutdown is tested; platform console signal behavior
-should be verified on the deployment host.
+## Network and health access
 
-OTLP retries 429/502/503/504 and transport errors using capped exponential delay
-and bounded attempts. Other HTTP errors and successful partial responses are
-not retried. Retry-After headers and random jitter are not implemented yet.
+Non-loopback listeners require auth_token, unless an administrator explicitly
+sets allow_remote_without_auth: true. Send Authorization: Bearer <token>.
+allowed_ips restricts literal socket peer addresses; forwarded headers do not
+override the peer. Use an entire environment reference such as
+`${env:OTLP_TOKEN}` for a secret configuration value. The receiver serves plain
+HTTP; remote deployments need trusted TLS termination.
 
-Factories in core/component register custom Processor and Exporter types.
-Pass the factories to config.parse, then construct service.Runtime. Factories
-must validate without performing I/O. Processors return independently owned
-envelopes and must keep mutable state safe when reused across pipelines.
-Exporters return rejected counts and close resources in close. See the runnable
-registration example in tests/integration/plugin_test.mbt.
+Health defaults to enabled on loopback and disabled remotely. Explicit remote
+health_enabled requires a separate health_token. Status includes lifecycle,
+logical budgets, RSS, receiver requests/rejections/timeouts, pipeline filtering,
+processor failures, queue overflow/shutdown losses and per-destination export
+counts, retry attempts and safe error categories. It excludes request bodies
+and credentials. Counters reset on restart.
+
+## Queues and delivery
+
+Each pipeline owns an input queue and one queue per exporter attachment.
+Defaults are 64 batches / 32 MiB per queue. Matching-pipeline input admission is
+atomic: any full input rejects the request with 503. A full output queue drops
+that destination's copy and increments overflowDropped; healthy outputs continue.
+Distinct destinations run independently. A shared destination serializes all
+sends, including custom exporters, and reuses HTTP connections.
+
+Input delivered means processing completed. Output delivered means a target
+accepted the response or a local append completed. Neither proves durable
+storage. Successful partial OTLP responses count rejected records without retry.
+Retryable HTTP codes are 429/502/503/504; transport failures also retry within
+the configured attempt count. retries: 0 disables retries. Exponential backoff
+includes random jitter and respects capped Retry-After seconds/HTTP dates.
+
+Batch limits bound serialized retention. One request can exceed the batch
+record threshold while remaining within its byte bound. Overflow, filter
+decisions, processor errors and shutdown loss have separate counters.
+
+## Files, plugins and shutdown
+
+JSONL exporters default to max_bytes: 67108864 and max_files: 5, including the
+current file. Rotation retains numbered archives and removes the oldest. A line
+larger than the size limit fails rather than violating it. Writes are not fsynced.
+Rotation bounds files managed by that destination, not the entire disk; monitor
+free space and keep output directories private.
+
+Preflight resolves parent paths and rejects colliding destinations/archives,
+existing symlink/nonregular outputs and overlapping resolved listeners.
+It cannot prevent hostile local directory changes after validation.
+Configuration rejects unreferenced components before invoking custom factories.
+
+Factories validate without I/O. Processors return independent envelopes and
+must handle reuse across pipelines safely. Exporters report rejected counts
+and release resources in close. Each close has a deadline; a hung plugin does
+not prevent another plugin closing. Plugins are trusted code.
+
+Shutdown stops admission, flushes batches and drains within shutdown_timeout_ms
+(default 30 s). Expiry records outstanding data as shutdown loss. Crashes can
+lose volatile queues, and retry after interruption can duplicate delivery.
+No exactly-once or durable at-least-once guarantee is provided. Timed shutdown
+is tested; console-signal behavior needs deployment-host verification.

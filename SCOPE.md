@@ -1,27 +1,27 @@
-# MoonTelemetry
+# Project scope
 
-MoonBit native observability **Collector**, not an instrumentation SDK.
-Receive Logs, Metrics and Traces over OTLP/HTTP, process them in configured
-order, and fan out to independent bounded exporter queues.
+MoonTelemetry is a native MoonBit observability Collector. It receives Logs,
+Metrics and Traces over OTLP/HTTP, processes them in configured order and fans
+out to independently bounded destination queues. Applications instrument with
+an SDK; the Collector runs as a separate service.
 
-The implementation follows the 12-stage plan in the MoonTelemetry conversation.
-Native is the deployment target. JSON configuration comes first; YAML, gRPC,
-persistent queues, tail sampling and a dashboard are deferred.
+Data adapters, configuration, orchestration, network handling, processors,
+exporters, CLI, examples, tests, benchmarks and automation use MoonBit.
+Generated protocol models and async I/O are dependencies. A small original C
+shim supplies operating-system RSS measurements on native platforms.
 
-## Implementation sequence
+Native is the deployment target. JSON configuration is strict. Components
+extend through MoonBit traits and factory registration. Receiver, processor,
+exporter and service contracts stay separate. Shared exporter instances
+serialize sends and close after active sends finish.
 
-1. Scope and dependency foundation
-2. Reused OTLP data envelopes and codecs
-3. Extensible component registry and lifecycle
-4. Attribute/resource/filter processors
-5. Bounded batch and admission control
-6. Isolated fanout and delivery accounting
-7. Strict configuration and environment expansion
-8. Debug/file/OTLP exporters and retry classification
-9. HTTP receiver and protocol errors
-10. Runtime wiring, CLI and graceful drain
-11. Protocol and end-to-end examples
-12. CI, performance harness and deployment documentation
+This 0.1.x project remains experimental. Volatile queues, bounded retries,
+logical memory budgets and rotating files do not provide durable delivery,
+exactly-once semantics, a hard RSS ceiling or a filesystem security boundary.
+See [compatibility](COMPATIBILITY.md), [operations](docs/OPERATIONS.md) and
+[security policy](SECURITY.md) for concrete contracts.
 
-Each stage is committed separately with targeted validation. No full test run
-is required for this implementation session.
+gRPC, YAML, profiles, durable queues, tail sampling, dashboard and distributed
+coordination are outside the current implementation. Long-duration production
+qualification remains separate from the focused regressions and short-load
+evidence recorded in [validation](docs/VALIDATION.md).

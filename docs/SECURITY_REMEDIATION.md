@@ -1,38 +1,33 @@
-# Audit remediation: first batch S01–S07
+# Security remediation record
 
-Implemented first, following the latest audit's sequencing:
+The 0.1.1 hardening work covers the following audit areas. These are implemented
+controls with focused regression evidence, not an independent security audit.
 
-- Shared `MemoryBudget`: reserve/release/used/available/is_overloaded. Reservation
-  failure leaves accounting unchanged. Operations are synchronous on the single
-  cooperative event loop; cross-thread use is unsupported.
-- `service.memory_budget_bytes` defaults to 1 GiB;
-  `request_memory_budget_bytes` to 256 MiB; total configured active connection
-  limits must fit `max_total_connections` (default 1024).
-- Every active request reserves three max-body buffers against both request
-  and shared budgets before reading. This conservative charge includes gzip
-  input/output and decoding workspace. Even small requests reserve this worst
-  case. Both reservations release on success, error, timeout and cancellation.
-- All runtime queues share the global budget; in-flight batches remain charged.
-  Atomic ingress fanout rolls back reservations on partial failure. Output
-  budget exhaustion follows the existing per-destination overflow policy.
-- Processing/pending buffers reserve three queue byte limits per pipeline;
-  batch buffers reserve three batch byte limits. Reservations last until runtime
-  shutdown. Validation rejects insufficient combined request/workspace budgets.
-- Parsing guards: 100,000 records/request, 256 attributes/container, 1,000,000
-  fields/request and nesting depth 64. JSON has a pre-parser lexical guard;
-  protobuf checks run before the generated decoder allocates records. These
-  initial complexity limits are fixed, not user-configurable yet.
+| Area | Implemented |
+| --- | --- |
+| Resource admission | Shared request/queue/workspace/outbound logical budgets; reservation rollback and cancellation cleanup; global connection limit |
+| Parsing | Configurable lower complexity bounds, strict duplicate keys, UTF-8/wire/depth checks, cumulative gzip bound and 16-member cap |
+| OTLP interoperability | Exact numeric 64-bit JSON, future enums, semantic IDs, unpacked repeated primitives, strict response encoding/size and oneof handling |
+| Export lifecycle | Persistent serialized destinations, bounded retries with Retry-After/jitter, separately bounded plugin close |
+| Configuration boundaries | Unused-component rejection, strict URL authority, resolved listener conflicts, output/rotation path preflight |
+| Privacy and exposure | Bearer ingress auth, source-IP restrictions, separate health auth, recursive redaction with case-insensitive keys, allowlist and removal |
+| Storage | Bounded per-file rotation/retention, oversize-line refusal and export failure accounting |
+| Observability | Native RSS independent of logical usage; receiver, processor, queue and destination counters with safe error categories |
+| Duplication and maintenance | Reused upstream models, descriptor consistency checker, shared component catalog, generated module/CLI version |
+| Governance | Security policy, contribution policy, third-party license/LLVM-exception notices, changelog and explicit experimental scope |
+| Validation | Malformed-input regression corpus, short HTTP load test, actual Go Collector interop, Ubuntu/Windows key CI checks |
 
-These are logical serialized-byte/workspace budgets, **not RSS limits**. Buffer
-growth overhead, object headers, allocator behavior, outbound encoding and trusted
-plugins can use additional physical memory. Arbitrarily expanding custom plugins
-are outside this resource contract. Native RSS collection remains outstanding.
+MemoryBudget operations are synchronous and designed for one cooperative event
+loop. Cross-thread access is unsupported. Logical charging does not include every
+allocator/object cost and does not establish a hard RSS ceiling. Custom plugins,
+configurations, environment values and output directories remain trusted inputs.
 
-Focused regression evidence: global queue rollback/in-flight release; request
-parse-failure release; concurrent request denial; cancellation release; gzip
-expansion bound; runtime drain releases reservations; record/attribute guards.
-Full test suite and sustained stress tests have not been run.
+See [operations](OPERATIONS.md) for defaults and delivery contracts,
+[compatibility](../COMPATIBILITY.md) for protocol limits,
+[validation](VALIDATION.md) and [performance](PERFORMANCE.md) for evidence.
 
-Later audit batches remain open: protocol numeric/unpacked compatibility,
-identifier semantics, endpoint/path validation, exporter retry/connection work,
-plugin serialization, redaction/rotation and disclosure/third-party policies.
+Remaining qualification includes a fully reproducible compiler/transitive build
+chain, long-duration soak, deployment-host signal handling and sustained disk-full
+testing. No claim of full protocol certification, production readiness or
+exactly-once delivery is made. Root CI action pinning is implemented; installing
+the compiler still follows latest and must not be described as fully pinned.
