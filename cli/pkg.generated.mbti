@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "miik-su/moontelemetry/cli"
+
+import {
+  "miik-su/moontelemetry/core/component",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn parse(ArrayView[String]) -> Command raise @component.CollectorError
+
+// Errors
+
+// Types and methods
+pub(all) enum Command {
+  Run(String)
+  Validate(String)
+  Version
+  Components
+  Help
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
