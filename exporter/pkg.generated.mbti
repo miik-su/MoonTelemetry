@@ -28,6 +28,7 @@ pub struct Destination {
   spec : @config.ExporterSpec
   lock : @async.Mutex
 }
+pub async fn Destination::close(Self) -> Unit
 pub fn Destination::new(@config.ExporterSpec) -> Self
 pub async fn Destination::send(Self, @data.Envelope) -> Int32
 

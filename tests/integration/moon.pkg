@@ -10,4 +10,6 @@ import {
   "miik-su/moontelemetry/service",
   "miik-su/moontelemetry/exporter",
   "miik-su/moontelemetry/receiver/otlp",
+  "miik-su/moontelemetry/core/component",
+  "miik-su/moontelemetry/processor",
 }

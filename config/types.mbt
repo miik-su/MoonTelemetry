@@ -1,5 +1,6 @@
 ///|
 pub(all) enum ProcessorSpec {
+  Plugin(&@component.Processor)
   Transform(@processor.Transform)
   Memory(Int32)
   Batch(size~ : Int32, timeout_ms~ : Int32, max_bytes~ : Int32)
@@ -7,6 +8,7 @@ pub(all) enum ProcessorSpec {
 
 ///|
 pub(all) enum ExporterSpec {
+  Plugin(&@component.Exporter)
   Debug(detailed~ : Bool)
   File(String)
   Otlp(endpoint~ : String, json~ : Bool, timeout_ms~ : Int32, retries~ : Int32)

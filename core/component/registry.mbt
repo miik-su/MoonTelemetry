@@ -113,6 +113,6 @@ pub(open) trait Processor {
 
 ///|
 pub(open) trait Exporter {
-  async fn export(Self, @data.Envelope) -> Unit
+  async fn send(Self, @data.Envelope) -> Int32
   async fn close(Self) -> Unit
 }

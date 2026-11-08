@@ -2,12 +2,13 @@
 package "miik-su/moontelemetry/config"
 
 import {
+  "miik-su/moontelemetry/core/component",
   "miik-su/moontelemetry/core/data",
   "miik-su/moontelemetry/processor",
 }
 
 // Values
-pub fn parse(String, env? : (String) -> String?) -> Config raise
+pub fn parse(String, env? : (String) -> String?, factories? : @component.Factories) -> Config raise
 
 // Errors
 
@@ -22,6 +23,7 @@ pub struct Config {
 }
 
 pub(all) enum ExporterSpec {
+  Plugin(&@component.Exporter)
   Debug(detailed~ : Bool)
   File(String)
   Otlp(endpoint~ : String, json~ : Bool, timeout_ms~ : Int32, retries~ : Int32)
@@ -36,6 +38,7 @@ pub struct PipelineSpec {
 }
 
 pub(all) enum ProcessorSpec {
+  Plugin(&@component.Processor)
   Transform(@processor.Transform)
   Memory(Int32)
   Batch(size~ : Int32, timeout_ms~ : Int32, max_bytes~ : Int32)

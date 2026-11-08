@@ -16,6 +16,7 @@ pub struct Runtime {
   routes : Array[Route]
   lifecycle : @component.Lifecycle
   mut draining : Bool
+  destinations : Array[@exporter.Destination]
 }
 
 ///|
@@ -62,7 +63,13 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
       dropped: 0L,
     })
   }
-  { config, routes, lifecycle: @component.Lifecycle::new(), draining: false, }
+  {
+    config,
+    routes,
+    lifecycle: @component.Lifecycle::new(),
+    draining: false,
+    destinations: destinations.values().collect(),
+  }
 }
 
 ///|
@@ -152,6 +159,7 @@ async fn process_loop(runtime : Runtime, route : Route) -> Unit {
           for p in route.spec.processors {
             match p {
               Transform(t) => input = t.process(input)
+              Plugin(p) => input = p.process(input)
               Memory(limit) => @processor.admit(input, limit)
               Batch(..) => ()
             }
@@ -230,6 +238,7 @@ async fn workers(runtime : Runtime) -> Unit {
 ///|
 pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
   self.lifecycle.start()
+  errdefer self.lifecycle.close()
   let servers : Array[@http.Server] = []
   defer (for server in servers {
     server.close()
@@ -301,5 +310,12 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
       }
     }
     self.lifecycle.close()
+    @async.with_timeout(self.config.shutdown_timeout_ms, async fn() {
+      for destination in self.destinations {
+        destination.close()
+      }
+    }) catch {
+      _ => ()
+    }
   })
 }

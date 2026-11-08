@@ -161,7 +161,11 @@ fn action(j : Json, path : String) -> @processor.Action raise {
 }
 
 ///|
-fn processor_spec(id : String, j : Json) -> ProcessorSpec raise {
+fn processor_spec(
+  id : String,
+  j : Json,
+  factories : @component.Factories,
+) -> ProcessorSpec raise {
   let m = object(j, "processors." + id)
   let p = "processors." + id
   match component_type(id) {
@@ -202,10 +206,7 @@ fn processor_spec(id : String, j : Json) -> ProcessorSpec raise {
       }
       Transform(@processor.DropAttribute(key, m.get("equals").unwrap()))
     }
-    _ => {
-      error(p, "unknown processor type")
-      Memory(1)
-    }
+    _ => Plugin(factories.processor(component_type(id), j))
   }
 }
 
@@ -213,6 +214,7 @@ fn processor_spec(id : String, j : Json) -> ProcessorSpec raise {
 pub fn parse(
   source : String,
   env~ : (String) -> String? = _ => None,
+  factories~ : @component.Factories = @component.Factories::new(),
 ) -> Config raise {
   validate_keys(source)
   let root = object(expand(@json.parse(source), env), "config")
@@ -246,7 +248,7 @@ pub fn parse(
     }
   }
   for id, j in object(root.get("processors").unwrap_or({}), "processors") {
-    processors[id] = processor_spec(id, j)
+    processors[id] = processor_spec(id, j, factories)
   }
   for
     id, j in object(root.get("exporters").unwrap_or(Json::null()), "exporters") {
@@ -284,10 +286,7 @@ pub fn parse(
           retries=number(m, "retries", 3, p, max=10),
         )
       }
-      _ => {
-        error(p, "unknown exporter type")
-        Debug(detailed=false)
-      }
+      _ => Plugin(factories.exporter(component_type(id), j))
     }
   }
   let service = object(root.get("service").unwrap_or(Json::null()), "service")

@@ -94,6 +94,7 @@ pub async fn Destination::send(
   input : @data.Envelope,
 ) -> Int32 {
   match self.spec {
+    Plugin(destination) => destination.send(input)
     Debug(detailed~) => {
       if detailed {
         println(input.to_json().stringify())
@@ -126,5 +127,12 @@ pub async fn Destination::send(
           }
         }
       }
+  }
+}
+
+///|
+pub async fn Destination::close(self : Destination) -> Unit {
+  if self.spec is Plugin(destination) {
+    destination.close()
   }
 }

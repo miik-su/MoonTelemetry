@@ -17,6 +17,17 @@ pub(all) suberror CollectorError {
 } derive(@debug.Debug)
 
 // Types and methods
+pub struct Factories {
+  processors : Map[String, (Json) -> &Processor raise]
+  exporters : Map[String, (Json) -> &Exporter raise]
+  names : Registry
+}
+pub fn Factories::exporter(Self, String, Json) -> &Exporter raise
+pub fn Factories::new() -> Self
+pub fn Factories::processor(Self, String, Json) -> &Processor raise
+pub fn Factories::register_exporter(Self, String, (Json) -> &Exporter raise) -> Unit raise CollectorError
+pub fn Factories::register_processor(Self, String, (Json) -> &Processor raise) -> Unit raise CollectorError
+
 pub(all) enum Kind {
   Receiver
   Processor
@@ -50,7 +61,7 @@ pub(all) enum State {
 
 // Traits
 pub(open) trait Exporter {
-  async fn export(Self, @data.Envelope) -> Unit
+  async fn send(Self, @data.Envelope) -> Int32
   async fn close(Self) -> Unit
 }
 
