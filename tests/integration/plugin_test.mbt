@@ -2,6 +2,56 @@
 struct Tagged {}
 
 ///|
+struct FailingProcessor {}
+
+///|
+impl @component.Processor for FailingProcessor with fn process(_, _) {
+  raise @component.Configuration("synthetic-private-payload")
+}
+
+///|
+async test "processor failure identifies component without exposing exception text" {
+  let factories = @component.Factories::new()
+  factories.register_processor("fail", _ => FailingProcessor::{ })
+  let cfg : Json = {
+    "receivers": { "otlp": { "port": 24329 } },
+    "processors": { "fail/private": {} },
+    "exporters": { "debug": {} },
+    "service": {
+      "pipelines": {
+        "logs": {
+          "receivers": ["otlp"],
+          "processors": ["fail/private"],
+          "exporters": ["debug"],
+        },
+      },
+    },
+  }
+  let runtime = @service.Runtime::new(
+    @config.parse(cfg.stringify(), factories~),
+  )
+  @async.with_task_group(async fn(group) {
+    group.spawn_bg(async fn() { runtime.run(stop_after_ms=200) })
+    @async.sleep(50)
+    assert_eq(
+      post(
+        "http://127.0.0.1:24329",
+        "/v1/logs",
+        @fs.read_file("tests/fixtures/logs.json").binary(),
+        "application/json",
+      ),
+      200,
+    )
+  })
+  let health = runtime.health().stringify()
+  assert_true(health.contains("\"processorFailedRecords\":\"1\""))
+  assert_true(health.contains("\"lastFailureComponentId\":\"fail/private\""))
+  assert_true(health.contains("\"lastErrorClass\":\"processor_error\""))
+  assert_false(health.contains("synthetic-private-payload"))
+  assert_true(health.contains("\"logicalMemoryUsed\":\"0\""))
+}
+
+///|
 impl @component.Processor for Tagged with fn process(_, input) {
   @processor.Transform::Attributes([Upsert("custom", { "boolValue": true })]).process(
     input,

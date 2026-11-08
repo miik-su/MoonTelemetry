@@ -181,7 +181,12 @@ pub async fn Destination::send(
   let rejected = {
     errdefer (if !@async.is_being_cancelled() {
       self.failures += 1L
-      self.last_error = "export_io_or_plugin_error"
+      self.rejected += input.count().to_int64()
+      self.last_error = match self.spec {
+        File(_) | RotatingFile(..) => "file_io_error"
+        Plugin(_) => "plugin_error"
+        _ => "export_io_error"
+      }
       self.last_failure_ms = @async.now()
     })
     self.send_locked(input)
@@ -225,6 +230,7 @@ async fn Destination::send_locked(
       let line = input.to_json().stringify() + "\n"
       let size = @utf8.encode(line).length().to_int64()
       if size > max_bytes.to_int64() {
+        self.current_error = "file_line_too_large"
         return input.count()
       }
       let current = if @fs.exists(path) { @fs.file_size(path) } else { 0L }

@@ -522,6 +522,7 @@ pub fn parse(
       signal,
       receivers: rs,
       processors: specs,
+      processor_ids: ps,
       exporters: es,
     })
   }

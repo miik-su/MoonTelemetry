@@ -38,6 +38,7 @@ pub struct PipelineSpec {
   signal : @data.Signal
   receivers : Array[String]
   processors : Array[ProcessorSpec]
+  processor_ids : Array[String]
   exporters : Array[String]
 }
 

@@ -10,6 +10,9 @@ struct Route {
   mut dropped : Int64
   mut processed : Int64
   mut shutdown_lost : Int64
+  mut last_failure_component : String
+  mut last_failure_class : String
+  mut last_failure_ms : Int64
 }
 
 ///|
@@ -86,6 +89,9 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
       dropped: 0L,
       processed: 0L,
       shutdown_lost: 0L,
+      last_failure_component: "",
+      last_failure_class: "",
+      last_failure_ms: 0L,
     })
   }
   if workspace + config.request_memory_budget_bytes.to_int64() >=
@@ -165,6 +171,9 @@ pub fn Runtime::health(self : Runtime) -> Json {
             "processorDropped": Json::string(r.dropped.to_string()),
             "processedRecords": Json::string(r.processed.to_string()),
             "processorFailedRecords": Json::string(r.dropped.to_string()),
+            "lastFailureComponentId": Json::string(r.last_failure_component),
+            "lastErrorClass": Json::string(r.last_failure_class),
+            "lastFailureUnixMs": Json::string(r.last_failure_ms.to_string()),
             "shutdownLostRecords": Json::string(r.shutdown_lost.to_string()),
             "outputs": Json::array(
               r.outputs.map(pair => {
@@ -209,10 +218,14 @@ async fn process_loop(runtime : Runtime, route : Route) -> Unit {
       continue
     }
     match route.input.take() {
-      Some(packet) =>
+      Some(packet) => {
+        let mut failed_component = route.spec.id
+        let mut error_class = "decode_error"
         try {
           let mut input = packet.decode()
-          for p in route.spec.processors {
+          for i, p in route.spec.processors {
+            failed_component = route.spec.processor_ids[i]
+            error_class = "processor_error"
             match p {
               Transform(t) => input = t.process(input)
               Plugin(p) => input = p.process(input)
@@ -221,6 +234,8 @@ async fn process_loop(runtime : Runtime, route : Route) -> Unit {
             }
           }
           route.filtered += (packet.count() - input.count()).max(0).to_int64()
+          failed_component = route.spec.id
+          error_class = "batch_or_encoding_error"
           if route.batch is Some(batch) {
             for out in batch.push(input, now=@async.now()) {
               stage(route, out)
@@ -232,10 +247,14 @@ async fn process_loop(runtime : Runtime, route : Route) -> Unit {
           route.processed += input.count().to_int64()
         } catch {
           _ => {
+            route.last_failure_component = failed_component
+            route.last_failure_class = error_class
+            route.last_failure_ms = @async.now()
             route.dropped += packet.count().to_int64()
             route.input.finish(rejected=packet.count())
           }
         }
+      }
       None => {
         if runtime.draining {
           if route.batch is Some(batch) && batch.flush() is Some(out) {

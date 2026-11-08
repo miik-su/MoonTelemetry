@@ -22,6 +22,54 @@ async test "file rotation enforces byte and retention limits" {
 }
 
 ///|
+async test "file failures report safe categories and rejected records" {
+  let dir = @fs.tmpdir(prefix="moontelemetry-file-errors-")
+  defer @fs.rmdir(dir, recursive=true)
+  let input = @data.decode(
+    Logs,
+    @fs.read_file("tests/fixtures/logs.json").binary(),
+    json=true,
+  )
+  let small = @exporter.Destination::new(
+    RotatingFile(path=dir + "/small.jsonl", max_bytes=1, max_files=1),
+  )
+  assert_eq(small.send(input), input.count())
+  assert_false(@fs.exists(dir + "/small.jsonl"))
+  guard small.stats() is Object(stats) else { abort("missing file stats") }
+  assert_eq(
+    stats.get("lastErrorClass"),
+    Some(Json::string("file_line_too_large")),
+  )
+  assert_eq(
+    stats.get("rejectedRecords"),
+    Some(Json::string(input.count().to_string())),
+  )
+  small.close()
+  let missing = @exporter.Destination::new(
+    File(dir + "/missing/private-name.jsonl"),
+  )
+  assert_true(
+    try {
+      let _ = missing.send(input)
+      false
+    } catch {
+      _ => true
+    },
+  )
+  guard missing.stats() is Object(failed) else {
+    abort("missing failure stats")
+  }
+  assert_eq(failed.get("lastErrorClass"), Some(Json::string("file_io_error")))
+  assert_eq(failed.get("failedBatches"), Some(Json::string("1")))
+  assert_eq(
+    failed.get("rejectedRecords"),
+    Some(Json::string(input.count().to_string())),
+  )
+  assert_false(missing.stats().stringify().contains("private-name"))
+  missing.close()
+}
+
+///|
 struct SerialExporter {
   active : Array[Int32]
 }
