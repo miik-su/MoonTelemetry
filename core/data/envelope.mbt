@@ -107,6 +107,7 @@ pub fn decode(signal : Signal, body : Bytes, json~ : Bool) -> Envelope raise {
   if json {
     return from_json(signal, @json.parse(@utf8.decode(body)))
   }
+  validate_wire(body)
   let reader = @protobuf.BytesReader::from_bytes(body)
   let result = match signal {
     Logs => Envelope::Logs(@protobuf.Read::read(reader))
@@ -154,7 +155,7 @@ fn id_size(key : String) -> Int32 {
 fn ids(j : Json, inbound : Bool) -> Json raise DataError {
   match j {
     Object(m) => {
-      let out = Map::new()
+      let out = Map([])
       for key, v in m {
         out[key] = if id_size(key) > 0 && v is String(s) {
           if s.is_empty() {
@@ -177,7 +178,7 @@ fn ids(j : Json, inbound : Bool) -> Json raise DataError {
               raise Invalid("invalid ID length: " + key)
             }
             let digits = "0123456789abcdef"
-            let out = StringBuilder::new()
+            let out = StringBuilder()
             for b in bytes {
               out.write_char(digits.get_char(b.to_int() >> 4).unwrap())
               out.write_char(digits.get_char(b.to_int() & 15).unwrap())

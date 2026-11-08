@@ -12,6 +12,8 @@ pub fn from_json(Signal, Json) -> Envelope raise
 
 pub fn signal_from_name(String) -> Signal?
 
+pub fn validate_wire(Bytes) -> Unit raise DataError
+
 // Errors
 pub(all) suberror DataError {
   Invalid(String)
