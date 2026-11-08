@@ -1,0 +1,33 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "miik-su/moontelemetry/receiver/otlp"
+
+import {
+  "miik-su/moontelemetry/config",
+  "miik-su/moontelemetry/core/data",
+  "moonbitlang/async/http",
+  "moonbitlang/async/io",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub async fn decompress(Bytes, Int32) -> Bytes
+
+pub fn json_encoding(String) -> Bool?
+
+pub async fn read_body(&@io.Reader, Int32) -> Bytes
+
+pub fn route(String) -> @data.Signal?
+
+pub async fn serve(@http.Server, @config.ReceiverSpec, (@data.Envelope) -> Int32 raise, health? : () -> Json) -> Unit
+
+// Errors
+pub(all) suberror RequestError {
+  TooLarge
+  BadEncoding
+} derive(@debug.Debug)
+
+// Types and methods
+
+// Type aliases
+
+// Traits

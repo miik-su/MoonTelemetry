@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/io",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async/gzip",
+  "moonbitlang/core/buffer",
+  "moonbitlang/protobuf",
+  "miik-su/moontelemetry/core/data",
+  "miik-su/moontelemetry/core/component",
+  "miik-su/moontelemetry/config",
+}
