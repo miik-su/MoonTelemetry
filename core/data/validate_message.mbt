@@ -18,6 +18,8 @@ fn validate_message(
     }
   }
   let mut attributes = 0
+  let mut trace = false
+  let mut span = false
   let mut pos = start
   while pos < end {
     counts[0] += 1
@@ -78,6 +80,23 @@ fn validate_message(
       if f.kind == "id" && len != 0 && len != id_size(f.name) {
         raise Invalid("invalid ID length")
       }
+      if f.kind == "id" && len > 0 {
+        let mut nonzero = false
+        for i in pos..<(pos + len) {
+          if bytes[i] != b'\x00' {
+            nonzero = true
+          }
+        }
+        if !nonzero {
+          raise Invalid("all-zero identifier")
+        }
+        if f.name == "traceId" {
+          trace = true
+        }
+        if f.name == "spanId" {
+          span = true
+        }
+      }
       if f.kind == "packed64" || f.kind == "packedDouble" {
         if len % 8 != 0 {
           raise Invalid("truncated packed values")
@@ -95,5 +114,8 @@ fn validate_message(
       }
     }
     pos += len
+  }
+  if kind == "Span" && (!trace || !span) {
+    raise Invalid("span requires nonzero traceId and spanId")
   }
 }

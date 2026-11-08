@@ -114,6 +114,7 @@ pub fn decode(signal : Signal, body : Bytes, json~ : Bool) -> Envelope raise {
     )
   }
   validate_wire(body)
+  let body = normalize_wire(body, root_kind(signal), 0, [0])
   validate_message(body, 0, body.length(), root_kind(signal), 0, [0, 0])
   let reader = @protobuf.BytesReader::from_bytes(body)
   let result = match signal {
