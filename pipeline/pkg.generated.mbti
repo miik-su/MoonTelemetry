@@ -40,6 +40,7 @@ pub struct Queue {
   mut delivered : Int64
   mut dropped : Int64
   mut overflow_dropped : Int64
+  mut shutdown_lost : Int64
 }
 pub fn Queue::can_accept(Self, Packet) -> Bool
 pub fn Queue::discard_all(Self) -> Unit

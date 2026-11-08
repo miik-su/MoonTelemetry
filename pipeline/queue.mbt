@@ -44,6 +44,7 @@ pub struct Queue {
   mut delivered : Int64
   mut dropped : Int64
   mut overflow_dropped : Int64
+  mut shutdown_lost : Int64
 }
 
 ///|
@@ -69,6 +70,7 @@ pub fn Queue::new(
     delivered: 0L,
     dropped: 0L,
     overflow_dropped: 0L,
+    shutdown_lost: 0L,
   }
 }
 
@@ -147,6 +149,7 @@ pub fn Queue::stats(self : Queue) -> Json {
     "delivered": Json::string(self.delivered.to_string()),
     "dropped": Json::string(self.dropped.to_string()),
     "overflowDropped": Json::string(self.overflow_dropped.to_string()),
+    "shutdownLost": Json::string(self.shutdown_lost.to_string()),
     "queuedBatches": Json::number(self.length.to_double()),
     "retainedBytes": Json::number(self.bytes.to_double()),
   }
@@ -161,7 +164,11 @@ pub fn Queue::record_overflow(self : Queue, p : Packet) -> Unit {
 pub fn Queue::discard_all(self : Queue) -> Unit {
   for ;; {
     match self.take() {
-      Some(p) => self.finish(rejected=p.count)
+      Some(p) => {
+        self.finish(rejected=p.count)
+        self.dropped -= p.count.to_int64()
+        self.shutdown_lost += p.count.to_int64()
+      }
       None => break
     }
   }

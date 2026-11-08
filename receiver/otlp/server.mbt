@@ -52,8 +52,29 @@ pub async fn read_body(
 pub async fn decompress(body : Bytes, limit : Int32) -> Bytes {
   let source = @io.MemoryReader(async fn(w) { w.write(body) })
   defer source.close()
-  let decoder = @gzip.Decoder(source)
-  read_body(decoder, limit)
+  let replays : Array[@io.MemoryReader] = []
+  defer (for reader in replays {
+    reader.close()
+  })
+  let mut input : &@io.Reader = source
+  let output = @buffer.Buffer()
+  for _ in 0..<16 {
+    let decoder = @gzip.Decoder(input)
+    output.write_bytes(read_body(decoder, limit - output.length()))
+    match input.read_some(max_len=1) {
+      None => return output.to_bytes()
+      Some(first) => {
+        let previous = input
+        let replay = @io.MemoryReader(async fn(w) {
+          w.write(first)
+          w.write_reader(previous)
+        })
+        replays.push(replay)
+        input = replay
+      }
+    }
+  }
+  raise BadEncoding
 }
 
 ///|
@@ -62,6 +83,7 @@ async fn respond(
   code : Int32,
   body : Bytes,
   json : Bool,
+  close~ : Bool = false,
 ) -> Unit {
   let headers = Map::from_array([
     (
@@ -72,8 +94,10 @@ async fn respond(
         "application/x-protobuf"
       },
     ),
-    (@http.CaseInsensitiveString("Connection"), "close"),
   ])
+  if close {
+    headers[@http.CaseInsensitiveString("Connection")] = "close"
+  }
   conn.send_response(
     code,
     if code == 200 {
@@ -89,13 +113,30 @@ async fn respond(
 }
 
 ///|
-async fn failure(
+async fn send_failure(
   conn : @http.ServerConnection,
   code : Int32,
   message : String,
   json : Bool,
+  stats : ReceiverStats,
 ) -> Unit {
-  let status = if code == 503 { 14 } else { 3 }
+  stats.rejected += 1L
+  stats.last_status = code
+  if code == 408 {
+    stats.timeouts += 1L
+  }
+  let status = match code {
+    400 => 3
+    401 => 16
+    403 => 7
+    404 => 5
+    405 | 415 => 12
+    408 => 4
+    413 => 8
+    500 => 13
+    503 => 14
+    _ => 2
+  }
   let b = @buffer.Buffer()
   @protobuf.write_uint32(b, 8U)
   @protobuf.write_int32(b, status)
@@ -110,7 +151,8 @@ async fn failure(
   } else {
     b.to_bytes()
   }
-  respond(conn, code, body, json)
+  respond(conn, code, body, json, close=true)
+  conn.close()
 }
 
 ///|
@@ -122,10 +164,15 @@ async fn handle(
   budget : @component.MemoryBudget,
   requests : @component.MemoryBudget,
   limits : @data.Limits,
+  stats : ReceiverStats,
 ) -> Unit {
+  let failure = async fn(conn, code, message, json) {
+    send_failure(conn, code, message, json, stats)
+  }
   let request = @async.with_timeout(cfg.header_timeout_ms, async fn() {
     conn.read_request()
   })
+  stats.requests += 1L
   if !cfg.allowed_ips.is_empty() {
     let peer = conn.client_addr()
     let allowed = cfg.allowed_ips.any(ip => {
@@ -156,6 +203,7 @@ async fn handle(
       }
     }
     respond(conn, 200, @utf8.encode(health().stringify()), true)
+    stats.successes += 1L
     return
   }
   let signal = match route(request.path) {
@@ -274,6 +322,14 @@ async fn handle(
     ),
     json,
   )
+  stats.successes += 1L
+  if request.headers
+    .get(@http.CaseInsensitiveString("Connection"))
+    .unwrap_or("")
+    .to_lower() ==
+    "close" {
+    conn.close()
+  }
 }
 
 ///|
@@ -295,6 +351,7 @@ pub async fn serve(
   budget~ : @component.MemoryBudget = @component.MemoryBudget::new(1073741824L),
   requests~ : @component.MemoryBudget = @component.MemoryBudget::new(268435456L),
   limits~ : @data.Limits = @data.Limits::default(),
+  stats~ : ReceiverStats = ReceiverStats::new(),
 ) -> Unit {
   let permits = @async.Semaphore(cfg.max_connections)
   @async.with_task_group(async fn(group) {
@@ -305,12 +362,24 @@ pub async fn serve(
         server.accept()
       }
       group.spawn_bg(async fn() {
+        stats.connections += 1
+        defer {
+          stats.connections -= 1
+        }
         defer permits.release()
         defer conn.close()
-        @async.with_timeout(cfg.timeout_ms, async fn() {
-          handle(conn, cfg, consume, health, budget, requests, limits)
-        }) catch {
-          _ => ()
+        for ;; {
+          @async.with_timeout(cfg.timeout_ms, async fn() {
+            handle(conn, cfg, consume, health, budget, requests, limits, stats)
+          }) catch {
+            @async.TimeoutError => {
+              stats.timeouts += 1L
+              stats.rejected += 1L
+              stats.last_status = 408
+              break
+            }
+            _ => break
+          }
         }
       })
     }

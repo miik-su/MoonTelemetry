@@ -19,7 +19,7 @@ pub async fn read_body(&@io.Reader, Int32, idle_timeout_ms? : Int32) -> Bytes
 
 pub fn route(String) -> @data.Signal?
 
-pub async fn serve(@http.Server, @config.ReceiverSpec, (@data.Envelope) -> Int32 raise, health? : () -> Json, budget? : @component.MemoryBudget, requests? : @component.MemoryBudget, limits? : @data.Limits) -> Unit
+pub async fn serve(@http.Server, @config.ReceiverSpec, (@data.Envelope) -> Int32 raise, health? : () -> Json, budget? : @component.MemoryBudget, requests? : @component.MemoryBudget, limits? : @data.Limits, stats? : ReceiverStats) -> Unit
 
 // Errors
 pub(all) suberror RequestError {
@@ -29,6 +29,16 @@ pub(all) suberror RequestError {
 pub fn RequestError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+pub struct ReceiverStats {
+  mut requests : Int64
+  mut successes : Int64
+  mut rejected : Int64
+  mut timeouts : Int64
+  mut connections : Int32
+  mut last_status : Int32
+}
+pub fn ReceiverStats::new() -> Self
+pub fn ReceiverStats::to_json(Self) -> Json
 
 // Type aliases
 

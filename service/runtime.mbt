@@ -14,6 +14,7 @@ struct Route {
 
 ///|
 pub struct Runtime {
+  receiver_stats : Map[String, @otlp.ReceiverStats]
   budget : @component.MemoryBudget
   requests : @component.MemoryBudget
   workspace : Int64
@@ -38,9 +39,12 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
     destinations[id] = @exporter.Destination::new(
       spec,
       max_response_bytes=config.response_limits.get(id).unwrap_or(4194304),
+      budget~,
+      id~,
     )
   }
   let routes = []
+  let receiver_stats = config.receivers.map((_, _) => @otlp.ReceiverStats::new())
   for spec in config.pipelines {
     workspace += config.queue_bytes.to_int64() * 3L
     let mut batch = None
@@ -95,6 +99,7 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
     requests,
     workspace,
     config,
+    receiver_stats,
     routes,
     lifecycle: @component.Lifecycle::new(),
     draining: false,
@@ -147,6 +152,9 @@ pub fn Runtime::health(self : Runtime) -> Json {
       Some(bytes) => Json::string(bytes.to_string())
       None => Json::null()
     },
+    "receivers": Json::object(
+      self.receiver_stats.map((_, stats) => stats.to_json()),
+    ),
     "pipelines": Json::array(
       self.routes.map(r => {
         (
@@ -158,7 +166,15 @@ pub fn Runtime::health(self : Runtime) -> Json {
             "processedRecords": Json::string(r.processed.to_string()),
             "processorFailedRecords": Json::string(r.dropped.to_string()),
             "shutdownLostRecords": Json::string(r.shutdown_lost.to_string()),
-            "outputs": Json::array(r.outputs.map(pair => pair.0.stats())),
+            "outputs": Json::array(
+              r.outputs.map(pair => {
+                let j = pair.0.stats()
+                if j is Object(m) {
+                  m["destination"] = pair.1.stats()
+                }
+                j
+              }),
+            ),
           } : Json)
       }),
     ),
@@ -333,6 +349,7 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
                 budget=self.budget,
                 requests=self.requests,
                 limits=self.config.limits,
+                stats=self.receiver_stats[pair.0],
               )
             })
           }

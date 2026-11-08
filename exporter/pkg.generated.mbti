@@ -3,6 +3,7 @@ package "miik-su/moontelemetry/exporter"
 
 import {
   "miik-su/moontelemetry/config",
+  "miik-su/moontelemetry/core/component",
   "miik-su/moontelemetry/core/data",
   "moonbitlang/async",
   "moonbitlang/async/http",
@@ -34,10 +35,20 @@ pub struct Destination {
   mut client : @http.Client?
   mut closed : Bool
   max_response_bytes : Int32
+  budget : @component.MemoryBudget?
+  id : String
+  mut successes : Int64
+  mut failures : Int64
+  mut retries : Int64
+  mut rejected : Int64
+  mut last_error : String
+  mut last_failure_ms : Int64
+  mut current_error : String
 }
 pub async fn Destination::close(Self) -> Unit
-pub fn Destination::new(@config.ExporterSpec, max_response_bytes? : Int32) -> Self
+pub fn Destination::new(@config.ExporterSpec, max_response_bytes? : Int32, budget? : @component.MemoryBudget, id? : String) -> Self
 pub async fn Destination::send(Self, @data.Envelope) -> Int32
+pub fn Destination::stats(Self) -> Json
 
 // Type aliases
 

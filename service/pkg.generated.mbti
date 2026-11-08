@@ -6,6 +6,7 @@ import {
   "miik-su/moontelemetry/core/component",
   "miik-su/moontelemetry/core/data",
   "miik-su/moontelemetry/exporter",
+  "miik-su/moontelemetry/receiver/otlp",
 }
 
 // Values
@@ -16,6 +17,7 @@ import {
 type Route
 
 pub struct Runtime {
+  receiver_stats : Map[String, @otlp.ReceiverStats]
   budget : @component.MemoryBudget
   requests : @component.MemoryBudget
   workspace : Int64

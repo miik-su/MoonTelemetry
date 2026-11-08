@@ -5,12 +5,23 @@ pub struct Destination {
   mut client : @http.Client?
   mut closed : Bool
   max_response_bytes : Int32
+  budget : @component.MemoryBudget?
+  id : String
+  mut successes : Int64
+  mut failures : Int64
+  mut retries : Int64
+  mut rejected : Int64
+  mut last_error : String
+  mut last_failure_ms : Int64
+  mut current_error : String
 }
 
 ///|
 pub fn Destination::new(
   spec : @config.ExporterSpec,
   max_response_bytes~ : Int32 = 4194304,
+  budget? : @component.MemoryBudget,
+  id~ : String = "",
 ) -> Destination {
   {
     spec,
@@ -18,6 +29,15 @@ pub fn Destination::new(
     client: None,
     closed: false,
     max_response_bytes,
+    budget,
+    id,
+    successes: 0L,
+    failures: 0L,
+    retries: 0L,
+    rejected: 0L,
+    last_error: "",
+    last_failure_ms: 0L,
+    current_error: "",
   }
 }
 
@@ -143,6 +163,49 @@ pub async fn Destination::send(
   if self.closed {
     raise Permanent(503)
   }
+  self.current_error = ""
+  let charge = input.wire_size() +
+    (if self.spec is Otlp(..) {
+      self.max_response_bytes.to_int64()
+    } else {
+      0L
+    })
+  if self.budget is Some(budget) && !budget.reserve(charge) {
+    self.failures += 1L
+    self.rejected += input.count().to_int64()
+    self.last_error = "global_export_budget_exhausted"
+    self.last_failure_ms = @async.now()
+    return input.count()
+  }
+  defer (if self.budget is Some(budget) { budget.release(charge) })
+  let rejected = {
+    errdefer (if !@async.is_being_cancelled() {
+      self.failures += 1L
+      self.last_error = "export_io_or_plugin_error"
+      self.last_failure_ms = @async.now()
+    })
+    self.send_locked(input)
+  }
+  self.rejected += rejected.max(0).min(input.count()).to_int64()
+  if rejected > 0 {
+    self.failures += 1L
+    self.last_error = if self.current_error.is_empty() {
+      "remote_partial_rejection"
+    } else {
+      self.current_error
+    }
+    self.last_failure_ms = @async.now()
+  } else {
+    self.successes += 1L
+  }
+  rejected
+}
+
+///|
+async fn Destination::send_locked(
+  self : Destination,
+  input : @data.Envelope,
+) -> Int32 {
   match self.spec {
     Plugin(destination) => destination.send(input)
     Debug(detailed~) => {
@@ -190,7 +253,13 @@ pub async fn Destination::send(
         try {
           return send_once(self, endpoint, input, json, timeout_ms)
         } catch {
-          Permanent(_) | InvalidResponse => {
+          Permanent(code) => {
+            self.current_error = "http_permanent_\{code}"
+            self.reset_client()
+            return input.count()
+          }
+          InvalidResponse => {
+            self.current_error = "invalid_response"
             self.reset_client()
             return input.count()
           }
@@ -200,8 +269,10 @@ pub async fn Destination::send(
               raise e
             }
             if attempt >= retries {
+              self.current_error = "retry_exhausted"
               return input.count()
             }
+            self.retries += 1L
             let floor = match e {
               Transient(delay) => delay
               _ => 0
@@ -214,6 +285,19 @@ pub async fn Destination::send(
           }
         }
       }
+  }
+}
+
+///|
+pub fn Destination::stats(self : Destination) -> Json {
+  {
+    "componentId": Json::string(self.id),
+    "successfulBatches": Json::string(self.successes.to_string()),
+    "failedBatches": Json::string(self.failures.to_string()),
+    "retryAttempts": Json::string(self.retries.to_string()),
+    "rejectedRecords": Json::string(self.rejected.to_string()),
+    "lastErrorClass": Json::string(self.last_error),
+    "lastFailureUnixMs": Json::string(self.last_failure_ms.to_string()),
   }
 }
 
