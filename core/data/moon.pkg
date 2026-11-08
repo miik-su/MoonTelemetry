@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/protobuf",
+  "moonbit-community/opentelemetry/protocol/collector/logs/v1" @logs,
+  "moonbit-community/opentelemetry/protocol/collector/metrics/v1" @metrics,
+  "moonbit-community/opentelemetry/protocol/collector/trace/v1" @traces,
+}
