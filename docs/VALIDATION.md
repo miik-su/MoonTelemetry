@@ -17,13 +17,23 @@ no full-suite test command was used.
 | tools | Generated version consistency and 40 upstream descriptors checked for field numbers/names, exact scalar/packed readers, repetition and oneofs |
 
 moon check, moon fmt and moon info pass locally. GitHub Actions runs key checks
-on Ubuntu and Windows. The main run for commit 4747559 passed both platforms:
-[workflow run](https://github.com/miik-su/MoonTelemetry/actions/runs/42491224845).
-Later commits require their own run; that result does not cover future changes.
+on Ubuntu and Windows. The main run for implementation commit b983286 passed
+both platforms, including strict formatting and generated-interface checks:
+[workflow run](https://github.com/miik-su/MoonTelemetry/actions/runs/42494030842).
+Later implementation changes require their own run.
 CI root actions are SHA-pinned. Compiler and core installation are fixed to
 0.10.20+65efd5b93; all four official Windows/Linux archive URLs were checked.
 The setup action still uses a tagged transitive action and does not enforce
 repository-pinned archive checksums. Supply-chain reproducibility is incomplete.
+
+The isolated local Windows compiler archive matched the official archive SHA-256
+before extraction: bdff9a3b2d7c61a3adae2fe09221d3de63effc6cab28bfa0cbeb94fb0d529d79.
+It was installed under ignored _build without replacing the system toolchain.
+The core archive came from the fixed official HTTPS URL; a separate checksum
+URL was unavailable, so no independent core archive verification is claimed.
+The new toolchain passed 16 protocol, 7 configuration and 19 integration tests.
+An upstream async C stub emitted an EINVAL macro redefinition warning on MSVC;
+project MoonBit checks passed without source diagnostics.
 
 ## External Go Collector interoperability
 

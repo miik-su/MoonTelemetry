@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.1 — security hardening
+## 0.1.1 — 2026-11-08
 
 - Shared request/queue/workspace budgets, configurable parsing limits and RSS observation.
 - Exact 64-bit numeric JSON input, future enums, packed/unpacked interoperability,
@@ -13,6 +13,9 @@
   preflight and component-specific failure accounting without exception payloads.
 - Component catalog/version generation, upstream descriptor consistency checks,
   deterministic malformed-input regression tests and a Collector-level benchmark.
+- Startup-failure plugin cleanup, strict generated-interface/format checks on a
+  fixed toolchain, successful Windows/Linux key CI, lossless real Go Collector
+  roundtrip and a ten-minute HTTP run with no loss of accepted records.
 
 This is a pre-production release. It does not add gRPC, durable queues or
 exactly-once delivery. See COMPATIBILITY.md for explicit support boundaries.
