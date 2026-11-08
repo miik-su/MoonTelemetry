@@ -4,11 +4,21 @@ pub struct Destination {
   lock : @async.Mutex
   mut client : @http.Client?
   mut closed : Bool
+  max_response_bytes : Int32
 }
 
 ///|
-pub fn Destination::new(spec : @config.ExporterSpec) -> Destination {
-  { spec, lock: @async.Mutex(), client: None, closed: false, }
+pub fn Destination::new(
+  spec : @config.ExporterSpec,
+  max_response_bytes~ : Int32 = 4194304,
+) -> Destination {
+  {
+    spec,
+    lock: @async.Mutex(),
+    client: None,
+    closed: false,
+    max_response_bytes,
+  }
 }
 
 ///|
@@ -104,7 +114,7 @@ async fn send_once(
       (if json { "application/json" } else { "application/x-protobuf" }) {
       raise InvalidResponse
     }
-    let bytes = read_bounded(client, 1048576)
+    let bytes = read_bounded(client, destination.max_response_bytes)
     let n = @data.rejected(input.signal(), bytes, json~) catch {
       _ => raise InvalidResponse
     }
@@ -230,14 +240,14 @@ fn Destination::reset_client(self : Destination) -> Unit {
 }
 
 ///|
-pub fn retry_after(value : String) -> Int32 {
+pub fn retry_after(value : String, now_ms~ : Int64 = @async.now()) -> Int32 {
   let mut seconds = 0
   if value.is_empty() {
     return 0
   }
   for c in value {
     if c < '0' || c > '9' {
-      return 0
+      return date_delay(value, now_ms)
     }
     seconds = (seconds * 10 + c.to_int() - 48).min(3600)
   }

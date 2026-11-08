@@ -67,7 +67,7 @@ test "unknown fields invalid limits and unresolved environment" {
       old="\"otlp\":{}",
       new="\"otlp\":{\"host\":\"${env:HOST}\"}",
     ),
-    env=_ => Some("0.0.0.0"),
+    env=_ => Some("127.0.0.1"),
   )
-  assert_eq(c.receivers["otlp"].host, "0.0.0.0")
+  assert_eq(c.receivers["otlp"].host, "127.0.0.1")
 }

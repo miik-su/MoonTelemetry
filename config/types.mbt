@@ -27,6 +27,9 @@ pub struct ReceiverSpec {
   processing_timeout_ms : Int32
   health_enabled : Bool
   health_token : String
+  auth_token : String
+  allowed_ips : Array[String]
+  allow_remote_without_auth : Bool
 }
 
 ///|
@@ -40,6 +43,8 @@ pub struct PipelineSpec {
 
 ///|
 pub struct Config {
+  limits : @data.Limits
+  response_limits : Map[String, Int32]
   memory_budget_bytes : Int32
   request_memory_budget_bytes : Int32
   max_total_connections : Int32

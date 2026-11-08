@@ -35,7 +35,10 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
   let mut workspace = 0L
   let destinations = Map([])
   for id, spec in config.exporters {
-    destinations[id] = @exporter.Destination::new(spec)
+    destinations[id] = @exporter.Destination::new(
+      spec,
+      max_response_bytes=config.response_limits.get(id).unwrap_or(4194304),
+    )
   }
   let routes = []
   for spec in config.pipelines {
@@ -140,6 +143,10 @@ pub fn Runtime::health(self : Runtime) -> Json {
     ),
     "logicalMemoryUsed": Json::string(self.budget.used().to_string()),
     "requestMemoryUsed": Json::string(self.requests.used().to_string()),
+    "rssBytes": match @memory.rss_bytes() {
+      Some(bytes) => Json::string(bytes.to_string())
+      None => Json::null()
+    },
     "pipelines": Json::array(
       self.routes.map(r => {
         (
@@ -274,6 +281,7 @@ async fn workers(runtime : Runtime) -> Unit {
 
 ///|
 pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
+  self.preflight()
   self.lifecycle.start()
   errdefer self.lifecycle.close()
   if !self.budget.reserve(self.workspace) {
@@ -324,6 +332,7 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
                 health=() => self.health(),
                 budget=self.budget,
                 requests=self.requests,
+                limits=self.config.limits,
               )
             })
           }
@@ -375,13 +384,17 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
       }
     }
     self.lifecycle.close()
-    @async.with_timeout(self.config.shutdown_timeout_ms, async fn() {
+    @async.with_task_group(group => {
       for destination in self.destinations {
-        destination.close()
+        group.spawn_bg(async fn() {
+          @async.with_timeout(self.config.shutdown_timeout_ms, async fn() {
+            destination.close()
+          }) catch {
+            _ => ()
+          }
+        })
       }
-    }) catch {
-      _ => ()
-    }
+    })
   })
   if failure is Some(e) {
     raise e

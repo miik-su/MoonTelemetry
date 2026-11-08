@@ -13,7 +13,7 @@ import {
 // Values
 pub async fn read_bounded(&@io.Reader, Int32) -> Bytes
 
-pub fn retry_after(String) -> Int32
+pub fn retry_after(String, now_ms? : Int64) -> Int32
 
 pub fn retry_delay(Int32) -> Int32
 
@@ -33,9 +33,10 @@ pub struct Destination {
   lock : @async.Mutex
   mut client : @http.Client?
   mut closed : Bool
+  max_response_bytes : Int32
 }
 pub async fn Destination::close(Self) -> Unit
-pub fn Destination::new(@config.ExporterSpec) -> Self
+pub fn Destination::new(@config.ExporterSpec, max_response_bytes? : Int32) -> Self
 pub async fn Destination::send(Self, @data.Envelope) -> Int32
 
 // Type aliases

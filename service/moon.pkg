@@ -1,4 +1,6 @@
 import {
+  "moonbitlang/async/fs",
+  "miik-su/moontelemetry/extensions/memory",
   "moonbitlang/async",
   "moonbitlang/async/http",
   "moonbitlang/async/socket",

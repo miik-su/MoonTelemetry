@@ -19,7 +19,7 @@ pub async fn read_body(&@io.Reader, Int32, idle_timeout_ms? : Int32) -> Bytes
 
 pub fn route(String) -> @data.Signal?
 
-pub async fn serve(@http.Server, @config.ReceiverSpec, (@data.Envelope) -> Int32 raise, health? : () -> Json, budget? : @component.MemoryBudget, requests? : @component.MemoryBudget) -> Unit
+pub async fn serve(@http.Server, @config.ReceiverSpec, (@data.Envelope) -> Int32 raise, health? : () -> Json, budget? : @component.MemoryBudget, requests? : @component.MemoryBudget, limits? : @data.Limits) -> Unit
 
 // Errors
 pub(all) suberror RequestError {

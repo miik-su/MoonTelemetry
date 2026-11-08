@@ -179,7 +179,7 @@ fn processor_spec(
       }
       Transform(@processor.Redact(keys, body=boolean(m, "body", false, p)))
     }
-    "memory_limiter" => {
+    "memory_limiter" | "payload_size_guard" => {
       fields(m, ["max_bytes"], p)
       Memory(number(m, "max_bytes", 16777216, p))
     }
@@ -228,14 +228,85 @@ pub fn parse(
 ) -> Config raise {
   validate_keys(source)
   let root = object(expand(@json.parse(source), env), "config")
-  fields(root, ["receivers", "processors", "exporters", "service"], "config")
+  fields(
+    root,
+    ["receivers", "processors", "exporters", "service", "limits"],
+    "config",
+  )
+  // Reject unused components before invoking any custom factory.
+  let used_receivers : Map[String, Bool] = Map([])
+  let used_processors : Map[String, Bool] = Map([])
+  let used_exporters : Map[String, Bool] = Map([])
+  let planned_service = object(
+    root.get("service").unwrap_or(Json::null()),
+    "service",
+  )
+  for
+    id, j in object(
+      planned_service.get("pipelines").unwrap_or(Json::null()),
+      "service.pipelines",
+    ) {
+    let m = object(j, "service.pipelines." + id)
+    for name in names(m, "receivers", id) {
+      used_receivers[name] = true
+    }
+    for name in names(m, "processors", id) {
+      used_processors[name] = true
+    }
+    for name in names(m, "exporters", id) {
+      used_exporters[name] = true
+    }
+  }
+  let limits_config = object(root.get("limits").unwrap_or({}), "limits")
+  fields(
+    limits_config,
+    [
+      "max_records_per_request", "max_attributes_per_record", "max_total_fields_per_request",
+      "max_nesting_depth",
+    ],
+    "limits",
+  )
+  let limits : @data.Limits = {
+    max_records_per_request: number(
+      limits_config,
+      "max_records_per_request",
+      100000,
+      "limits",
+      max=100000,
+    ),
+    max_attributes_per_record: number(
+      limits_config,
+      "max_attributes_per_record",
+      256,
+      "limits",
+      max=256,
+    ),
+    max_total_fields_per_request: number(
+      limits_config,
+      "max_total_fields_per_request",
+      1000000,
+      "limits",
+      max=1000000,
+    ),
+    max_nesting_depth: number(
+      limits_config,
+      "max_nesting_depth",
+      64,
+      "limits",
+      max=64,
+    ),
+  }
   let receivers = Map([])
   let processors = Map([])
   let exporters = Map([])
+  let response_limits = Map([])
   let registry = @component.builtins()
   for
     id, j in object(root.get("receivers").unwrap_or(Json::null()), "receivers") {
     let p = "receivers." + id
+    if !used_receivers.contains(id) {
+      error(p, "unreferenced component")
+    }
     if !registry.contains(component_type(id), Receiver) {
       error(p, "unknown receiver type")
     }
@@ -245,6 +316,7 @@ pub fn parse(
       [
         "host", "port", "max_body_bytes", "timeout_ms", "max_connections", "header_timeout_ms",
         "body_idle_timeout_ms", "processing_timeout_ms", "health_enabled", "health_token",
+        "auth_token", "allowed_ips", "allow_remote_without_auth",
       ],
       p,
     )
@@ -275,19 +347,59 @@ pub fn parse(
         p,
       ),
       health_token: text(m, "health_token", "", p),
+      auth_token: text(m, "auth_token", "", p),
+      allowed_ips: if m.contains("allowed_ips") {
+        names(m, "allowed_ips", p)
+      } else {
+        []
+      },
+      allow_remote_without_auth: boolean(
+        m, "allow_remote_without_auth", false, p,
+      ),
       host,
       port: number(m, "port", 4318, p, max=65535),
-      max_body_bytes: number(m, "max_body_bytes", 67108864, p),
+      max_body_bytes: number(m, "max_body_bytes", 33554432, p),
       timeout_ms: number(m, "timeout_ms", 10000, p, max=600000),
-      max_connections: number(m, "max_connections", 128, p, max=65536),
+      max_connections: number(m, "max_connections", 32, p, max=65536),
+    }
+    let receiver = receivers[id]
+    if !["127.0.0.1", "::1", "localhost"].contains(host.to_lower()) &&
+      receiver.auth_token.is_empty() &&
+      !receiver.allow_remote_without_auth {
+      error(
+        p, "non-loopback listeners require auth_token or explicit allow_remote_without_auth",
+      )
+    }
+    for ip in receiver.allowed_ips {
+      let _ = @socket.Addr::parse(
+        (if ip.contains(":") { "[" + ip + "]" } else { ip }) + ":1",
+      ) catch {
+        _ =>
+          raise @component.Configuration(
+            p + ": allowed_ips requires literal IP addresses",
+          )
+      }
+    }
+    if receiver.health_enabled &&
+      receiver.health_token.is_empty() &&
+      !["127.0.0.1", "::1", "localhost"].contains(host.to_lower()) {
+      error(
+        p, "health_token required when enabling health on a non-loopback listener",
+      )
     }
   }
   for id, j in object(root.get("processors").unwrap_or({}), "processors") {
+    if !used_processors.contains(id) {
+      error("processors." + id, "unreferenced component")
+    }
     processors[id] = processor_spec(id, j, factories)
   }
   for
     id, j in object(root.get("exporters").unwrap_or(Json::null()), "exporters") {
     let p = "exporters." + id
+    if !used_exporters.contains(id) {
+      error(p, "unreferenced component")
+    }
     let m = object(j, p)
     exporters[id] = match component_type(id) {
       "debug" => {
@@ -307,7 +419,18 @@ pub fn parse(
         )
       }
       "otlp" => {
-        fields(m, ["endpoint", "json", "timeout_ms", "retries"], p)
+        fields(
+          m,
+          ["endpoint", "json", "timeout_ms", "retries", "max_response_bytes"],
+          p,
+        )
+        response_limits[id] = number(
+          m,
+          "max_response_bytes",
+          4194304,
+          p,
+          max=67108864,
+        )
         let endpoint = text(m, "endpoint", "", p)
         let _ = self_endpoint(endpoint)
         Otlp(
@@ -440,6 +563,8 @@ pub fn parse(
   }
   {
     memory_budget_bytes,
+    limits,
+    response_limits,
     request_memory_budget_bytes,
     max_total_connections,
     receivers,

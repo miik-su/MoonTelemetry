@@ -121,10 +121,26 @@ async fn handle(
   health : () -> Json,
   budget : @component.MemoryBudget,
   requests : @component.MemoryBudget,
+  limits : @data.Limits,
 ) -> Unit {
   let request = @async.with_timeout(cfg.header_timeout_ms, async fn() {
     conn.read_request()
   })
+  if !cfg.allowed_ips.is_empty() {
+    let peer = conn.client_addr()
+    let allowed = cfg.allowed_ips.any(ip => {
+      let address = @socket.Addr::parse(
+        (if ip.contains(":") { "[" + ip + "]" } else { ip }) + ":\{peer.port()}",
+      ) catch {
+        _ => return false
+      }
+      address == peer
+    })
+    if !allowed {
+      failure(conn, 403, "source not allowed", true)
+      return
+    }
+  }
   if request.meth == Get && request.path == "/health" {
     if !cfg.health_enabled {
       failure(conn, 404, "not found", true)
@@ -149,10 +165,6 @@ async fn handle(
       return
     }
   }
-  if request.meth != Post {
-    failure(conn, 405, "POST required", true)
-    return
-  }
   let content_type = request.headers
     .get(@http.CaseInsensitiveString("Content-Type"))
     .unwrap_or("")
@@ -162,6 +174,20 @@ async fn handle(
       failure(conn, 415, "unsupported content type", true)
       return
     }
+  }
+  if request.meth != Post {
+    failure(conn, 405, "POST required", json)
+    return
+  }
+  if !cfg.auth_token.is_empty() &&
+    !token_equal(
+      request.headers
+      .get(@http.CaseInsensitiveString("Authorization"))
+      .unwrap_or(""),
+      "Bearer " + cfg.auth_token,
+    ) {
+    failure(conn, 401, "authentication required", json)
+    return
   }
   let encoding = request.headers
     .get(@http.CaseInsensitiveString("Content-Encoding"))
@@ -209,7 +235,7 @@ async fn handle(
     }
   }
   let started = @async.now()
-  let input = @data.decode(signal, body, json~) catch {
+  let input = @data.decode(signal, body, json~, limits~) catch {
     _ => {
       failure(conn, 400, "invalid OTLP payload", json)
       return
@@ -268,6 +294,7 @@ pub async fn serve(
   health~ : () -> Json = () => ({ "status": "ready" } : Json),
   budget~ : @component.MemoryBudget = @component.MemoryBudget::new(1073741824L),
   requests~ : @component.MemoryBudget = @component.MemoryBudget::new(268435456L),
+  limits~ : @data.Limits = @data.Limits::default(),
 ) -> Unit {
   let permits = @async.Semaphore(cfg.max_connections)
   @async.with_task_group(async fn(group) {
@@ -281,7 +308,7 @@ pub async fn serve(
         defer permits.release()
         defer conn.close()
         @async.with_timeout(cfg.timeout_ms, async fn() {
-          handle(conn, cfg, consume, health, budget, requests)
+          handle(conn, cfg, consume, health, budget, requests, limits)
         }) catch {
           _ => ()
         }

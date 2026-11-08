@@ -27,6 +27,7 @@ pub struct Runtime {
 }
 pub fn Runtime::health(Self) -> Json
 pub fn Runtime::new(@config.Config) -> Self raise
+pub async fn Runtime::preflight(Self) -> Unit
 pub async fn Runtime::run(Self, stop_after_ms? : Int32) -> Unit
 pub fn Runtime::submit(Self, String, @data.Envelope) -> Int32 raise
 
