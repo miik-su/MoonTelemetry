@@ -1,9 +1,10 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum Signal {
   Logs
   Metrics
   Traces
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Signal::path(self : Signal) -> String {
@@ -95,9 +96,10 @@ fn count_points(j : Json) -> Int32 {
 }
 
 ///|
+#derive(Debug)
 pub(all) suberror DataError {
   Invalid(String)
-} derive(Debug)
+}
 
 ///|
 pub fn from_json(

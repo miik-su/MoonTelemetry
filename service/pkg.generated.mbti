@@ -7,6 +7,7 @@ import {
   "miik-su/moontelemetry/core/data",
   "miik-su/moontelemetry/exporter",
   "miik-su/moontelemetry/receiver/otlp",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -27,7 +28,7 @@ pub struct Runtime {
   mut draining : Bool
   destinations : Array[@exporter.Destination]
 }
-pub fn Runtime::health(Self) -> Json
+pub fn Runtime::health(Self) -> @json.Json
 pub fn Runtime::new(@config.Config) -> Self raise
 pub async fn Runtime::preflight(Self) -> Unit
 pub async fn Runtime::run(Self, stop_after_ms? : Int32) -> Unit

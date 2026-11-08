@@ -11,7 +11,8 @@ moonbitlang/async 和 moonbit-community/opentelemetry 的生成模型。
 ## 运行
 
 需要 MoonBit Native 工具链及 C 编译器。本次验证工具链：
-`moon 0.1.20261023`，Windows x64 / MSVC。
+`moon 0.1.20261104` / `moonc 0.10.20+65efd5b93`，Windows x64 / MSVC。
+CI 的编译器与标准库固定到相同版本。
 
 ```sh
 moon update
@@ -80,7 +81,7 @@ moon info
 ```
 
 CI 在 Windows/Linux 上执行关键包与集成验证；没有执行全量测试。
-真实 Go Collector 互操作和 60 秒本机负载结果见验证记录。
+真实 Go Collector 双向互操作及 60 秒、10 分钟本机负载结果见验证记录。
 API 接口由 `moon info` 生成在各包的 `pkg.generated.mbti` 中。
 架构参考 Go OpenTelemetry Collector 的组件与 service pipeline 分离方式；
 详见 [ARCHITECTURE.md](ARCHITECTURE.md)。

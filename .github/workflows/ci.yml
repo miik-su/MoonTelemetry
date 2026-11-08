@@ -20,9 +20,7 @@ jobs:
       - run: moon update
       - run: moon version --all
       - run: moon check --target native
-      # The CI formatter migrates derive syntax; keep the source compatible
-      # with the validated 20261023 toolchain and verify formatting parses.
-      - run: moon fmt
+      - run: moon fmt --check
       - run: moon run tools/check_protocol_metadata.mbtx
       - run: moon run tools/generate_metadata.mbtx
       - run: git diff --exit-code -- core/component/version.generated.mbt

@@ -1,7 +1,8 @@
 # Validation record — 2026-11-08
 
-Local toolchain: moon 0.1.20261023 / moonc v0.10.17+d971670cd, Native,
-Windows x64 / MSVC. Only affected packages and key integration targets were run;
+Current local/CI toolchain: moon 0.1.20261104 / moonc v0.10.20+65efd5b93,
+Native, Windows x64 / MSVC locally. Earlier load/interop measurements used
+moon 0.1.20261023 / moonc v0.10.17+d971670cd. Only affected packages and key integration targets were run;
 no full-suite test command was used.
 
 | Target | Focused evidence |
@@ -12,7 +13,7 @@ no full-suite test command was used.
 | config | Seven tests: references, endpoints, auth policy, budgets, duplicates, environment and 600 deterministic configuration mutations |
 | exporter | Retry classification, partial responses and Retry-After seconds/date |
 | extensions/memory | Native RSS observation |
-| service / tests/integration | 18 integration tests: HTTP signal/encoding matrix, gzip boundaries and 300 mutations/member cap, slow body, auth/health/source controls, cancellation, destination isolation, plugin deadlines, file failures/oversize archives, safe processor failure metadata and shutdown accounting |
+| service / tests/integration | 19 integration tests: HTTP signal/encoding matrix, gzip boundaries and 300 mutations/member cap, slow body, auth/health/source controls, cancellation, destination isolation, plugin deadlines/startup failure cleanup, file failures/oversize archives, safe processor failure metadata and shutdown accounting |
 | tools | Generated version consistency and 40 upstream descriptors checked for field numbers/names, exact scalar/packed readers, repetition and oneofs |
 
 moon check, moon fmt and moon info pass locally. GitHub Actions runs key checks
@@ -66,8 +67,9 @@ it is not certification of every possible OTLP field or backend.
 
 ## Load and remaining qualification
 
-The 60-second eight-client HTTP test completed with zero transport errors,
-175,806 accepted requests and zero loss of accepted records.
+The 60-second and 600-second eight-client HTTP tests completed with zero transport
+errors and zero loss of accepted records. They accepted 175,806 and 1,728,309
+requests respectively. All 4,127 rejections in the longer run were HTTP 503.
 [Performance details and limits](PERFORMANCE.md) include RSS and latency.
 
 Long-duration soak, container deployment, console-signal behavior across

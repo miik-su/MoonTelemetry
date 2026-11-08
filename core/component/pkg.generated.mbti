@@ -4,6 +4,7 @@ package "miik-su/moontelemetry/core/component"
 import {
   "miik-su/moontelemetry/core/data",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -14,12 +15,13 @@ pub fn catalog() -> Array[ComponentDescriptor]
 pub fn version() -> String
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror CollectorError {
   Configuration(String)
   Backpressure(String)
   Stopped
   NotConfigured
-} derive(@debug.Debug)
+}
 pub fn CollectorError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
@@ -30,21 +32,22 @@ pub struct ComponentDescriptor {
 }
 
 pub struct Factories {
-  processors : Map[String, (Json) -> &Processor raise]
-  exporters : Map[String, (Json) -> &Exporter raise]
+  processors : Map[String, (@json.Json) -> &Processor raise]
+  exporters : Map[String, (@json.Json) -> &Exporter raise]
   names : Registry
 }
-pub fn Factories::exporter(Self, String, Json) -> &Exporter raise
+pub fn Factories::exporter(Self, String, @json.Json) -> &Exporter raise
 pub fn Factories::new() -> Self
-pub fn Factories::processor(Self, String, Json) -> &Processor raise
-pub fn Factories::register_exporter(Self, String, (Json) -> &Exporter raise) -> Unit raise CollectorError
-pub fn Factories::register_processor(Self, String, (Json) -> &Processor raise) -> Unit raise CollectorError
+pub fn Factories::processor(Self, String, @json.Json) -> &Processor raise
+pub fn Factories::register_exporter(Self, String, (@json.Json) -> &Exporter raise) -> Unit raise CollectorError
+pub fn Factories::register_processor(Self, String, (@json.Json) -> &Processor raise) -> Unit raise CollectorError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Kind {
   Receiver
   Processor
   Exporter
-} derive(Eq, @debug.Debug)
+}
 pub fn Kind::equal(Self, Self) -> Bool
 pub fn Kind::not_equal(Self, Self) -> Bool
 pub fn Kind::to_repr(Self) -> @debug.Repr
@@ -76,12 +79,13 @@ pub fn Registry::contains(Self, String, Kind) -> Bool
 pub fn Registry::new() -> Self
 pub fn Registry::register(Self, String, Kind) -> Unit raise CollectorError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum State {
   Created
   Running
   Draining
   Closed
-} derive(Eq, @debug.Debug)
+}
 pub fn State::equal(Self, Self) -> Bool
 pub fn State::not_equal(Self, Self) -> Bool
 pub fn State::to_repr(Self) -> @debug.Repr

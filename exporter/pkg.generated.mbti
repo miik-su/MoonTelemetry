@@ -9,6 +9,7 @@ import {
   "moonbitlang/async/http",
   "moonbitlang/async/io",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -21,11 +22,12 @@ pub fn retry_delay(Int32) -> Int32
 pub fn retryable(Int32) -> Bool
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror ExportError {
   Permanent(Int32)
   Transient(Int32)
   InvalidResponse
-} derive(@debug.Debug)
+}
 pub fn ExportError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
@@ -48,7 +50,7 @@ pub struct Destination {
 pub async fn Destination::close(Self) -> Unit
 pub fn Destination::new(@config.ExporterSpec, max_response_bytes? : Int32, budget? : @component.MemoryBudget, id? : String) -> Self
 pub async fn Destination::send(Self, @data.Envelope) -> Int32
-pub fn Destination::stats(Self) -> Json
+pub fn Destination::stats(Self) -> @json.Json
 
 // Type aliases
 

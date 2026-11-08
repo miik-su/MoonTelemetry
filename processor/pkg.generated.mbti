@@ -4,6 +4,7 @@ package "miik-su/moontelemetry/processor"
 import {
   "miik-su/moontelemetry/core/component",
   "miik-su/moontelemetry/core/data",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -13,9 +14,9 @@ pub fn admit(@data.Envelope, Int32) -> Unit raise
 
 // Types and methods
 pub(all) enum Action {
-  Insert(String, Json)
-  Update(String, Json)
-  Upsert(String, Json)
+  Insert(String, @json.Json)
+  Update(String, @json.Json)
+  Upsert(String, @json.Json)
   Delete(String)
 }
 
@@ -40,8 +41,8 @@ pub(all) enum Transform {
   Redaction(keys~ : Array[String], allowlist~ : Array[String]?, remove~ : Bool, body~ : Bool)
   Attributes(Array[Action])
   Resource(Array[Action])
-  DropAttribute(String, Json)
-  DropRecordIfAttributeEquals(String, Json)
+  DropAttribute(String, @json.Json)
+  DropRecordIfAttributeEquals(String, @json.Json)
 }
 pub fn Transform::process(Self, @data.Envelope) -> @data.Envelope raise
 pub impl @component.Processor for Transform

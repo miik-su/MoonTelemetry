@@ -3,12 +3,13 @@ package "miik-su/moontelemetry/core/data"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
 pub fn decode(Signal, Bytes, json~ : Bool, limits? : Limits) -> Envelope raise
 
-pub fn from_json(Signal, Json, limits? : Limits) -> Envelope raise
+pub fn from_json(Signal, @json.Json, limits? : Limits) -> Envelope raise
 
 pub fn merge_future(Signal, Array[Envelope]) -> Envelope raise
 
@@ -21,14 +22,15 @@ pub fn signal_from_name(String) -> Signal?
 pub fn validate_wire(Bytes) -> Unit raise DataError
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror DataError {
   Invalid(String)
-} derive(@debug.Debug)
+}
 pub fn DataError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) enum Envelope {
-  Future(Signal, Bytes, Json)
+  Future(Signal, Bytes, @json.Json)
   Logs(@moonbit-community/opentelemetry/protocol/collector/logs/v1.ExportLogsServiceRequest)
   Metrics(@moonbit-community/opentelemetry/protocol/collector/metrics/v1.ExportMetricsServiceRequest)
   Traces(@moonbit-community/opentelemetry/protocol/collector/trace/v1.ExportTraceServiceRequest)
@@ -36,7 +38,7 @@ pub(all) enum Envelope {
 pub fn Envelope::count(Self) -> Int32
 pub fn Envelope::encode(Self, json~ : Bool) -> Bytes raise
 pub fn Envelope::signal(Self) -> Signal
-pub fn Envelope::to_json(Self) -> Json raise DataError
+pub fn Envelope::to_json(Self) -> @json.Json raise DataError
 pub fn Envelope::wire_size(Self) -> Int64
 
 pub(all) struct Limits {
@@ -47,11 +49,12 @@ pub(all) struct Limits {
 }
 pub fn Limits::default() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Signal {
   Logs
   Metrics
   Traces
-} derive(Eq, @debug.Debug)
+}
 pub fn Signal::equal(Self, Self) -> Bool
 pub fn Signal::not_equal(Self, Self) -> Bool
 pub fn Signal::path(Self) -> String
