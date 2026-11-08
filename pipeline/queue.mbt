@@ -26,6 +26,7 @@ pub fn Packet::count(self : Packet) -> Int32 {
 
 ///|
 pub struct Queue {
+  budget : @component.MemoryBudget
   slots : Array[Packet?]
   max_bytes : Int32
   mut head : Int32
@@ -44,11 +45,13 @@ pub struct Queue {
 pub fn Queue::new(
   capacity~ : Int32,
   max_bytes~ : Int32,
+  budget? : @component.MemoryBudget,
 ) -> Queue raise @component.CollectorError {
   guard capacity > 0 && capacity <= 65536 && max_bytes > 0 else {
     raise @component.Configuration("invalid queue bounds")
   }
   {
+    budget: budget.unwrap_or(@component.MemoryBudget::new(max_bytes.to_int64())),
     slots: Array::make(capacity, None),
     max_bytes,
     head: 0,
@@ -77,12 +80,20 @@ pub fn Queue::push(self : Queue, p : Packet) -> Bool {
   if !self.can_accept(p) {
     return false
   }
+  if !self.budget.reserve(p.body.length().to_int64()) {
+    return false
+  }
+  self.enqueue(p)
+  true
+}
+
+///|
+fn Queue::enqueue(self : Queue, p : Packet) -> Unit {
   self.slots[self.tail] = Some(p)
   self.tail = (self.tail + 1) % self.slots.length()
   self.length += 1
   self.bytes += p.body.length()
   self.accepted += p.count.to_int64()
-  true
 }
 
 ///|
@@ -109,6 +120,7 @@ pub fn Queue::finish(self : Queue, rejected~ : Int32 = 0) -> Unit {
     self.delivered += (p.count - dropped).to_int64()
     self.dropped += dropped.to_int64()
     self.bytes -= p.body.length()
+    self.budget.release(p.body.length().to_int64())
     self.inflight = None
   }
 }
@@ -169,7 +181,17 @@ pub fn Fanout::submit(
   guard self.queues.all(q => q.can_accept(p)) else {
     raise @component.Backpressure("destination queue full or draining")
   }
+  let reserved : Array[Queue] = []
   for q in self.queues {
-    let _ = q.push(p)
+    if !q.budget.reserve(p.body.length().to_int64()) {
+      for previous in reserved {
+        previous.budget.release(p.body.length().to_int64())
+      }
+      raise @component.Backpressure("global memory budget exhausted")
+    }
+    reserved.push(q)
+  }
+  for q in self.queues {
+    q.enqueue(p)
   }
 }

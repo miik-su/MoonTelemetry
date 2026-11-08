@@ -47,6 +47,17 @@ pub fn Lifecycle::new() -> Self
 pub fn Lifecycle::start(Self) -> Unit raise CollectorError
 pub fn Lifecycle::state(Self) -> State
 
+pub struct MemoryBudget {
+  limit : Int64
+  mut retained : Int64
+}
+pub fn MemoryBudget::available(Self) -> Int64
+pub fn MemoryBudget::is_overloaded(Self) -> Bool
+pub fn MemoryBudget::new(Int64) -> Self raise CollectorError
+pub fn MemoryBudget::release(Self, Int64) -> Unit
+pub fn MemoryBudget::reserve(Self, Int64) -> Bool
+pub fn MemoryBudget::used(Self) -> Int64
+
 pub struct Registry {
   entries : Map[String, Kind]
 }

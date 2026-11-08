@@ -2,3 +2,7 @@ import {
   "miik-su/moontelemetry/core/data",
   "miik-su/moontelemetry/core/component",
 }
+
+import {
+  "miik-su/moontelemetry/core/component",
+} for "test"
