@@ -1,5 +1,17 @@
 # Operations and delivery semantics
 
+## Shared resource budget (audit remediation)
+
+Runtime queues now share `service.memory_budget_bytes` (default 1 GiB).
+Requests additionally share `request_memory_budget_bytes` (default 256 MiB).
+Processing/batch workspaces reserve capacity until shutdown; configured active
+receiver connection limits must total no more than `max_total_connections`
+(default 1024). Requests reserve three maximum-body buffers before allocation,
+including gzip workspace, and return 503 when either budget is exhausted.
+See [SECURITY_REMEDIATION.md](SECURITY_REMEDIATION.md) for exact accounting,
+fixed complexity guards, tests and outstanding audit tasks. These additions
+supersede the earlier per-queue-only budget description below.
+
 Start with `examples/collector.json`. All addresses default to loopback; the
 collector does not supply an authentication layer. HTTP headers and body reads
 share a per-connection timeout; each connection serves one request and closes.

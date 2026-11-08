@@ -1,5 +1,7 @@
 # MoonTelemetry
 
+最近安全整改进展：[全局预算与解析限制](docs/SECURITY_REMEDIATION.md)。
+
 MoonBit 原生可观测性 Collector：接收 Logs、Metrics、Traces，按配置处理，
 通过独立有界队列转发到 Debug、JSONL 文件和 OTLP/HTTP 目标。
 
