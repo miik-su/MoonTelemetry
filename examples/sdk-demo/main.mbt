@@ -6,7 +6,7 @@ async fn main {
   guard @otlp.SpanExporter::builder().with_http().build() is Ok(traces) else {
     abort("invalid trace exporter configuration")
   }
-  guard @otlp.LogExporter::builder().with_protocol(HttpJson).build() is Ok(logs) else {
+  guard @otlp.LogExporter::builder().with_http().build() is Ok(logs) else {
     abort("invalid log exporter configuration")
   }
   guard @otlp.MetricExporter::builder().with_http().build() is Ok(metrics) else {
