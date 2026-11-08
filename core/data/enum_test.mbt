@@ -1,5 +1,11 @@
 ///|
 test "future enum numbers survive both encodings and transforms" {
+  let negative = @data.from_json(Logs, {
+    "resourceLogs": [
+      { "scopeLogs": [{ "logRecords": [{ "severityNumber": -1 }] }] },
+    ],
+  })
+  assert_true(negative.to_json().stringify().contains("\"severityNumber\":-1"))
   let e = @data.from_json(Logs, {
     "resourceLogs": [
       {

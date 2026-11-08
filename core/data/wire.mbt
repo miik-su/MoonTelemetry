@@ -33,7 +33,7 @@ pub fn validate_wire(bytes : Bytes) -> Unit raise DataError {
 }
 
 ///|
-fn varint(bytes : Bytes, start : Int32) -> (UInt64, Int32) raise DataError {
+fn varint(bytes : BytesView, start : Int32) -> (UInt64, Int32) raise DataError {
   for i = 0, value = 0UL; i < 10; {
     guard start + i < bytes.length() else {
       raise Invalid("truncated protobuf varint")

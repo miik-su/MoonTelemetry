@@ -27,6 +27,12 @@ fn descriptor(kind : String) -> Array[Field] {
 ///|
 fn build_descriptor(kind : String) -> Array[Field] {
   let spec = match kind {
+    "ResponseLogs" => "1:partialSuccess:PartialLogs"
+    "ResponseMetrics" => "1:partialSuccess:PartialMetrics"
+    "ResponseTraces" => "1:partialSuccess:PartialTraces"
+    "PartialLogs" => "1:rejectedLogRecords:int64 2:errorMessage:str"
+    "PartialMetrics" => "1:rejectedDataPoints:int64 2:errorMessage:str"
+    "PartialTraces" => "1:rejectedSpans:int64 2:errorMessage:str"
     "Logs" => "1:resourceLogs:ResourceLogs[]"
     "Metrics" => "1:resourceMetrics:ResourceMetrics[]"
     "Traces" => "1:resourceSpans:ResourceSpans[]"
@@ -194,6 +200,16 @@ fn write_json_field(
       @protobuf.write_bool(b, x)
     }
     "uint" | "fixed32" => {
+      if enum_limit(name) >= 0 {
+        guard v is Number(n, ..) &&
+          n >= -2147483648.0 &&
+          n <= 2147483647.0 &&
+          n.to_int().to_double() == n else {
+          raise Invalid("invalid enum number: " + name)
+        }
+        @protobuf.write_int32(b, n.to_int())
+        return
+      }
       guard v is Number(n, ..) &&
         n >= 0 &&
         n <= 4294967295.0 &&

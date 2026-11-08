@@ -16,7 +16,12 @@ pub fn Packet::new(input : @data.Envelope) -> Packet raise {
 
 ///|
 pub fn Packet::decode(self : Packet) -> @data.Envelope raise {
-  @data.decode(self.signal, self.body, json=false)
+  @data.decode(self.signal, self.body, json=false, limits={
+    max_records_per_request: self.count.max(1),
+    max_attributes_per_record: 256,
+    max_total_fields_per_request: self.body.length().max(1),
+    max_nesting_depth: 64,
+  })
 }
 
 ///|

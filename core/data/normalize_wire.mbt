@@ -1,17 +1,20 @@
 ///|
 // Normalize unpacked repeated primitives before invoking the pinned decoder.
 fn normalize_wire(
-  bytes : Bytes,
+  bytes : BytesView,
   kind : String,
   depth : Int32,
   fields_seen : Array[Int32],
+  limits~ : Limits = Limits::default(),
 ) -> Bytes raise {
-  guard depth <= 64 else { raise Invalid("protobuf nesting limit exceeded") }
+  guard depth <= limits.max_nesting_depth else {
+    raise Invalid("protobuf nesting limit exceeded")
+  }
   let b = @buffer.Buffer()
   let mut pos = 0
   while pos < bytes.length() {
     fields_seen[0] += 1
-    guard fields_seen[0] <= 1000000 else {
+    guard fields_seen[0] <= limits.max_total_fields_per_request else {
       raise Invalid("protobuf field limit exceeded")
     }
     let start = pos
@@ -58,10 +61,11 @@ fn normalize_wire(
     let end = pos + len
     if field is Some(f) && wire == 2 && !descriptor(f.kind).is_empty() {
       let nested = normalize_wire(
-        bytes[pos:end].to_owned(),
+        bytes[pos:end],
         f.kind,
         depth + 1,
         fields_seen,
+        limits~,
       )
       @protobuf.write_uint64(b, tag)
       @protobuf.write_bytes(b, nested)
@@ -73,7 +77,7 @@ fn normalize_wire(
       @protobuf.write_uint32(b, ((number << 3) + 2).reinterpret_as_uint())
       @protobuf.write_bytes(b, bytes[content_start:end].to_owned())
     } else {
-      b.write_bytes(bytes[start:end].to_owned())
+      b.write_bytes(bytes[start:end])
     }
     pos = end
   }

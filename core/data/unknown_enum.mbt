@@ -12,7 +12,7 @@ fn enum_limit(name : String) -> Int32 {
 ///|
 // A descriptor-driven fallback retains future enum numbers that the pinned
 // generated enum types cannot represent. Known payloads keep generated models.
-fn wire_json(bytes : Bytes, kind : String) -> Json raise {
+fn wire_json(bytes : BytesView, kind : String) -> Json raise {
   let out : Map[String, Json] = Map([])
   let mut pos = 0
   while pos < bytes.length() {
@@ -39,7 +39,13 @@ fn wire_json(bytes : Bytes, kind : String) -> Json raise {
       if f.number != (tag >> 3).to_int() {
         continue
       }
-      let r = @protobuf.BytesReader::from_bytes(bytes[content:end].to_owned())
+      let r = @protobuf.BytesReader::from_bytes(
+        if descriptor(f.kind).is_empty() && !f.kind.has_prefix("packed") {
+          bytes[content:end].to_owned()
+        } else {
+          b""
+        },
+      )
       let value : Json = match f.kind {
         "str" => Json::string(@protobuf.read_string(r))
         "bool" =>
@@ -48,7 +54,14 @@ fn wire_json(bytes : Bytes, kind : String) -> Json raise {
           } else {
             Json::boolean(false)
           }
-        "uint" => Json::number(@protobuf.read_uint32(r).to_double())
+        "uint" =>
+          Json::number(
+            if enum_limit(f.name) >= 0 {
+              @protobuf.read_int32(r).to_double()
+            } else {
+              @protobuf.read_uint32(r).to_double()
+            },
+          )
         "fixed32" => Json::number(@protobuf.read_fixed32(r).to_double())
         "sint" => Json::number(@protobuf.read_sint32(r).0.to_double())
         "int64" => Json::string(@protobuf.read_int64(r).to_string())
@@ -77,10 +90,10 @@ fn wire_json(bytes : Bytes, kind : String) -> Json raise {
         "packed64" | "packedDouble" | "packedUInt" => {
           let values = []
           let mut offset = pos
+          let reader = @protobuf.BytesReader::from_bytes(
+            bytes[pos:end].to_owned(),
+          )
           while offset < end {
-            let reader = @protobuf.BytesReader::from_bytes(
-              bytes[offset:end].to_owned(),
-            )
             if f.kind == "packedUInt" {
               let (v, next) = varint(bytes, offset)
               values.push(Json::string(v.to_string()))
@@ -98,7 +111,7 @@ fn wire_json(bytes : Bytes, kind : String) -> Json raise {
           }
           Json::array(values)
         }
-        _ => wire_json(bytes[pos:end].to_owned(), f.kind)
+        _ => wire_json(bytes[pos:end], f.kind)
       }
       if f.repeated || f.kind.has_prefix("packed") {
         let previous = match out.get(f.name) {
@@ -128,13 +141,16 @@ pub fn merge_future(signal : Signal, items : Array[Envelope]) -> Envelope raise 
     Traces => "resourceSpans"
   }
   let resources = []
+  let bytes = @buffer.Buffer()
   for item in items {
+    bytes.write_bytes(item.encode(json=false))
     if item.to_json() is Object(m) && m.get(key) is Some(Array(a)) {
       resources.append(a)
     }
   }
-  from_json(
+  Future(
     signal,
+    bytes.to_bytes(),
     Json::object(Map::from_array([(key, Json::array(resources))])),
   )
 }

@@ -6,9 +6,9 @@ import {
 }
 
 // Values
-pub fn decode(Signal, Bytes, json~ : Bool) -> Envelope raise
+pub fn decode(Signal, Bytes, json~ : Bool, limits? : Limits) -> Envelope raise
 
-pub fn from_json(Signal, Json) -> Envelope raise
+pub fn from_json(Signal, Json, limits? : Limits) -> Envelope raise
 
 pub fn merge_future(Signal, Array[Envelope]) -> Envelope raise
 
@@ -37,6 +37,14 @@ pub fn Envelope::count(Self) -> Int32
 pub fn Envelope::encode(Self, json~ : Bool) -> Bytes raise
 pub fn Envelope::signal(Self) -> Signal
 pub fn Envelope::to_json(Self) -> Json raise DataError
+
+pub(all) struct Limits {
+  max_records_per_request : Int32
+  max_attributes_per_record : Int32
+  max_total_fields_per_request : Int32
+  max_nesting_depth : Int32
+}
+pub fn Limits::default() -> Self
 
 pub(all) enum Signal {
   Logs

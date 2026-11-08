@@ -100,30 +100,48 @@ pub(all) suberror DataError {
 } derive(Debug)
 
 ///|
-pub fn from_json(signal : Signal, json : Json) -> Envelope raise {
-  validate_json_shape(json, [0, 0], 0)
-  decode(signal, json_to_wire(json, root_kind(signal), 0), json=false)
+pub fn from_json(
+  signal : Signal,
+  json : Json,
+  limits~ : Limits = Limits::default(),
+) -> Envelope raise {
+  validate_json_shape(json, [0, 0], 0, limits)
+  decode(signal, json_to_wire(json, root_kind(signal), 0), json=false, limits~)
 }
 
 ///|
-pub fn decode(signal : Signal, body : Bytes, json~ : Bool) -> Envelope raise {
+pub fn decode(
+  signal : Signal,
+  body : Bytes,
+  json~ : Bool,
+  limits~ : Limits = Limits::default(),
+) -> Envelope raise {
   if json {
     let text = @utf8.decode(body)
-    validate_json_text(text)
+    validate_json_text(text, limits)
     return from_json(
       signal,
       @json.parse(
         text,
-        max_nesting_depth=64,
+        max_nesting_depth=limits.max_nesting_depth,
         reject_duplicate_keys=true,
         preserve_number_repr=true,
       ),
+      limits~,
     )
   }
   validate_wire(body)
   let metadata = [0, 0]
-  let body = normalize_wire(body, root_kind(signal), 0, metadata)
-  validate_message(body, 0, body.length(), root_kind(signal), 0, [0, 0])
+  let body = normalize_wire(body, root_kind(signal), 0, metadata, limits~)
+  validate_message(
+    body,
+    0,
+    body.length(),
+    root_kind(signal),
+    0,
+    [0, 0],
+    limits~,
+  )
   if metadata[1] > 0 {
     return Future(signal, body, wire_json(body, root_kind(signal)))
   }
