@@ -8,7 +8,7 @@ test "endpoint parser validates authority and preserves base path" {
     value in [
       "http://", "http://host:", "http://host:0", "http://host:65536", "http://user@host",
       "http://host/a?b", "http://999.1.1.1", "http://bad host", "http://host/../secret",
-      "file:///tmp",
+      "file:///tmp", "http://[::1]:",
     ] {
     assert_true(
       try {

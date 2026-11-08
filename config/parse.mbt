@@ -175,7 +175,10 @@ fn processor_spec(
       let keys = if m.contains("keys") {
         names(m, "keys", p)
       } else {
-        ["authorization", "password", "token", "api_key", "secret"]
+        [
+          "authorization", "password", "token", "api_key", "secret", "access_token",
+          "cookie", "session_id",
+        ]
       }
       let mode = text(m, "mode", "mask", p)
       if mode != "mask" && mode != "remove" {

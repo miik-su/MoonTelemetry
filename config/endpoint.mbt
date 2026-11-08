@@ -42,6 +42,9 @@ pub fn endpoint(value : String) -> Endpoint raise {
         error("endpoint", "invalid port")
       }
       port = suffix[1:].to_owned()
+      if port.is_empty() {
+        error("endpoint", "empty port")
+      }
     }
     let _ = @socket.Addr::parse("[" + host + "]:1") catch {
       _ => raise @component.Configuration("endpoint: invalid IPv6 address")
