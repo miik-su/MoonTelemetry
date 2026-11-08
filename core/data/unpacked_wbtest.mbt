@@ -16,3 +16,31 @@ test "unpacked histogram values normalize to packed equivalents" {
   @protobuf.write_bytes(expected, b"\x09\x00\x00\x00\x00\x00\x00\x00")
   assert_eq(normalized, expected.to_bytes())
 }
+
+///|
+test "later empty singular protobuf IDs cannot bypass required span IDs" {
+  for empty_tag in [10U, 18U] {
+    let span = @buffer.Buffer()
+    @protobuf.write_uint32(span, 10U)
+    @protobuf.write_bytes(span, b"1111111111111111")
+    @protobuf.write_uint32(span, 18U)
+    @protobuf.write_bytes(span, b"22222222")
+    @protobuf.write_uint32(span, empty_tag)
+    @protobuf.write_bytes(span, b"")
+    let mut body = span.to_bytes()
+    for tag in [18U, 18U, 10U] {
+      let parent = @buffer.Buffer()
+      @protobuf.write_uint32(parent, tag)
+      @protobuf.write_bytes(parent, body)
+      body = parent.to_bytes()
+    }
+    assert_true(
+      try {
+        let _ = decode(Traces, body, json=false)
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+}

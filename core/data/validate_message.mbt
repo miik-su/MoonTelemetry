@@ -94,6 +94,16 @@ fn validate_message(
       if f.kind == "id" && len != 0 && len != id_size(f.name) {
         raise Invalid("invalid ID length")
       }
+      if f.kind == "id" {
+        // Singular protobuf fields use the last value, so a later empty ID
+        // must clear the presence recorded by an earlier valid occurrence.
+        if f.name == "traceId" {
+          trace = len > 0
+        }
+        if f.name == "spanId" {
+          span = len > 0
+        }
+      }
       if f.kind == "id" && len > 0 {
         let mut nonzero = false
         for i in pos..<(pos + len) {
@@ -103,12 +113,6 @@ fn validate_message(
         }
         if !nonzero {
           raise Invalid("all-zero identifier")
-        }
-        if f.name == "traceId" {
-          trace = true
-        }
-        if f.name == "spanId" {
-          span = true
         }
       }
       if f.kind == "packed64" || f.kind == "packedDouble" {
