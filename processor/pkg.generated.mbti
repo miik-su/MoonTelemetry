@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "miik-su/moontelemetry/processor"
+
+import {
+  "miik-su/moontelemetry/core/component",
+  "miik-su/moontelemetry/core/data",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Action {
+  Insert(String, Json)
+  Update(String, Json)
+  Upsert(String, Json)
+  Delete(String)
+}
+
+pub(all) enum Transform {
+  Attributes(Array[Action])
+  Resource(Array[Action])
+  DropAttribute(String, Json)
+}
+pub fn Transform::process(Self, @data.Envelope) -> @data.Envelope raise
+pub impl @component.Processor for Transform
+
+// Type aliases
+
+// Traits

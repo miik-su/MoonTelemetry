@@ -1,0 +1,4 @@
+import {
+  "miik-su/moontelemetry/core/data",
+  "miik-su/moontelemetry/core/component",
+}
