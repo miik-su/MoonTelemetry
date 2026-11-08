@@ -94,16 +94,19 @@ pub(all) suberror DataError {
 
 ///|
 pub fn from_json(signal : Signal, json : Json) -> Envelope raise {
+  validate_json_shape(json, [0, 0], 0)
   decode(signal, json_to_wire(json, root_kind(signal), 0), json=false)
 }
 
 ///|
 pub fn decode(signal : Signal, body : Bytes, json~ : Bool) -> Envelope raise {
   if json {
-    return from_json(signal, @json.parse(@utf8.decode(body)))
+    let text = @utf8.decode(body)
+    validate_json_text(text)
+    return from_json(signal, @json.parse(text))
   }
   validate_wire(body)
-  validate_message(body, 0, body.length(), root_kind(signal), 0)
+  validate_message(body, 0, body.length(), root_kind(signal), 0, [0, 0])
   let reader = @protobuf.BytesReader::from_bytes(body)
   let result = match signal {
     Logs => Envelope::Logs(@protobuf.Read::read(reader))
