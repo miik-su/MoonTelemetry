@@ -37,6 +37,7 @@ pub struct Queue {
   mut accepted : Int64
   mut delivered : Int64
   mut dropped : Int64
+  mut overflow_dropped : Int64
 }
 
 ///|
@@ -59,6 +60,7 @@ pub fn Queue::new(
     accepted: 0L,
     delivered: 0L,
     dropped: 0L,
+    overflow_dropped: 0L,
   }
 }
 
@@ -127,9 +129,15 @@ pub fn Queue::stats(self : Queue) -> Json {
     "accepted": Json::string(self.accepted.to_string()),
     "delivered": Json::string(self.delivered.to_string()),
     "dropped": Json::string(self.dropped.to_string()),
+    "overflowDropped": Json::string(self.overflow_dropped.to_string()),
     "queuedBatches": Json::number(self.length.to_double()),
     "retainedBytes": Json::number(self.bytes.to_double()),
   }
+}
+
+///|
+pub fn Queue::record_overflow(self : Queue, p : Packet) -> Unit {
+  self.overflow_dropped += p.count.to_int64()
 }
 
 ///|

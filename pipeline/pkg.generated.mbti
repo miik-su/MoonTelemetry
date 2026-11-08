@@ -38,6 +38,7 @@ pub struct Queue {
   mut accepted : Int64
   mut delivered : Int64
   mut dropped : Int64
+  mut overflow_dropped : Int64
 }
 pub fn Queue::can_accept(Self, Packet) -> Bool
 pub fn Queue::discard_all(Self) -> Unit
@@ -45,6 +46,7 @@ pub fn Queue::empty(Self) -> Bool
 pub fn Queue::finish(Self, rejected? : Int32) -> Unit
 pub fn Queue::new(capacity~ : Int32, max_bytes~ : Int32) -> Self raise @component.CollectorError
 pub fn Queue::push(Self, Packet) -> Bool
+pub fn Queue::record_overflow(Self, Packet) -> Unit
 pub fn Queue::stats(Self) -> Json
 pub fn Queue::stop(Self) -> Unit
 pub fn Queue::take(Self) -> Packet?

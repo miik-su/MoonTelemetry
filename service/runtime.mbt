@@ -119,20 +119,11 @@ pub fn Runtime::health(self : Runtime) -> Json {
 }
 
 ///|
-async fn emit(route : Route, packet : @pipeline.Packet) -> Unit {
-  let fanout = @pipeline.Fanout::new(route.outputs.map(pair => pair.0))
-  for ;; {
-    let ok = try {
-      fanout.submit(packet)
-      true
-    } catch {
-      @component.Backpressure(_) => false
-      e => raise e
+fn emit(route : Route, packet : @pipeline.Packet) -> Unit {
+  for pair in route.outputs {
+    if !pair.0.push(packet) {
+      pair.0.record_overflow(packet)
     }
-    if ok {
-      return
-    }
-    @async.sleep(10)
   }
 }
 
