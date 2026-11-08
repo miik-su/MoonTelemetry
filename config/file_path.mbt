@@ -26,11 +26,26 @@ pub fn file_path(value : String) -> String raise @component.CollectorError {
       continue
     }
     if s == ".." {
-      if parts.is_empty() {
+      if parts.is_empty() || (parts.length() == 1 && parts[0].has_suffix(":")) {
         error("file.path", "path escapes root")
       }
       let _ = parts.pop()
       continue
+    }
+    let drive = parts.is_empty() &&
+      s.length() == 2 &&
+      s[1] == ':' &&
+      ((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z'))
+    for c in s {
+      if (c == ':' && !drive) ||
+        c == '<' ||
+        c == '>' ||
+        c == '"' ||
+        c == '|' ||
+        c == '?' ||
+        c == '*' {
+        error("file.path", "nonportable file character")
+      }
     }
     let stem = s.split(".").next().unwrap_or("").to_owned().to_upper()
     if [
