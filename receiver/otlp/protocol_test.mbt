@@ -9,7 +9,7 @@ test "receiver routes exact OTLP paths and negotiates media type" {
 
 ///|
 async test "streaming request body limit" {
-  let r = @io.MemoryReader(fn(w) { w.write(b"12345") })
+  let r = @io.MemoryReader(async fn(w) { w.write(b"12345") })
   defer r.close()
   assert_true(
     try {

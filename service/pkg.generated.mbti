@@ -5,6 +5,7 @@ import {
   "miik-su/moontelemetry/config",
   "miik-su/moontelemetry/core/component",
   "miik-su/moontelemetry/core/data",
+  "miik-su/moontelemetry/exporter",
 }
 
 // Values
@@ -19,6 +20,7 @@ pub struct Runtime {
   routes : Array[Route]
   lifecycle : @component.Lifecycle
   mut draining : Bool
+  destinations : Array[@exporter.Destination]
 }
 pub fn Runtime::health(Self) -> Json
 pub fn Runtime::new(@config.Config) -> Self raise

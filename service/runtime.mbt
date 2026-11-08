@@ -223,7 +223,7 @@ async fn export_loop(
 
 ///|
 async fn workers(runtime : Runtime) -> Unit {
-  @async.with_task_group(async fn(group) {
+  @async.with_task_group(group => {
     for route in runtime.routes {
       group.spawn_bg(async fn() { process_loop(runtime, route) })
       for pair in route.outputs {
@@ -252,31 +252,36 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
       @http.Server(@socket.Addr::resolve(pair.1.host, port=pair.1.port)),
     )
   }
-  let _ = @async.handle_cancellation(async fn() {
-    let serve_all = async fn() {
-      @async.with_task_group(async fn(group) {
-        group.spawn_bg(async fn() { workers(self) })
-        for i, pair in active {
-          group.spawn_bg(async fn() {
-            @otlp.serve(
-              servers[i],
-              pair.1,
-              input => self.submit(pair.0, input),
-              health=() => self.health(),
-            )
-          })
-        }
-      })
-    }
-    match stop_after_ms {
-      Some(ms) =>
-        @async.with_timeout(ms, serve_all) catch {
-          @async.TimeoutError => ()
-          e => raise e
-        }
-      None => serve_all()
-    }
-  })
+  let failure : Error? = try {
+    let _ = @async.handle_cancellation(async fn() {
+      let serve_all = async fn() {
+        @async.with_task_group(group => {
+          group.spawn_bg(async fn() { workers(self) })
+          for i, pair in active {
+            group.spawn_bg(async fn() {
+              @otlp.serve(
+                servers[i],
+                pair.1,
+                input => self.submit(pair.0, input),
+                health=() => self.health(),
+              )
+            })
+          }
+        })
+      }
+      match stop_after_ms {
+        Some(ms) =>
+          @async.with_timeout(ms, serve_all) catch {
+            @async.TimeoutError => ()
+            e => raise e
+          }
+        None => serve_all()
+      }
+    })
+    None
+  } catch {
+    e => Some(e)
+  }
   @async.protect_from_cancel(async fn() {
     self.lifecycle.drain()
     self.draining = true
@@ -318,4 +323,7 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
       _ => ()
     }
   })
+  if failure is Some(e) {
+    raise e
+  }
 }

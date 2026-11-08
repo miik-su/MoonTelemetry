@@ -22,6 +22,7 @@ pub fn validate_wire(Bytes) -> Unit raise DataError
 pub(all) suberror DataError {
   Invalid(String)
 } derive(@debug.Debug)
+pub fn DataError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) enum Envelope {
@@ -39,7 +40,10 @@ pub(all) enum Signal {
   Metrics
   Traces
 } derive(Eq, @debug.Debug)
+pub fn Signal::equal(Self, Self) -> Bool
+pub fn Signal::not_equal(Self, Self) -> Bool
 pub fn Signal::path(Self) -> String
+pub fn Signal::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

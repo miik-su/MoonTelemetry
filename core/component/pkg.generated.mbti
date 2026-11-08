@@ -15,6 +15,7 @@ pub(all) suberror CollectorError {
   Backpressure(String)
   Stopped
 } derive(@debug.Debug)
+pub fn CollectorError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct Factories {
@@ -33,6 +34,9 @@ pub(all) enum Kind {
   Processor
   Exporter
 } derive(Eq, @debug.Debug)
+pub fn Kind::equal(Self, Self) -> Bool
+pub fn Kind::not_equal(Self, Self) -> Bool
+pub fn Kind::to_repr(Self) -> @debug.Repr
 
 pub struct Lifecycle {
   mut state : State
@@ -56,6 +60,9 @@ pub(all) enum State {
   Draining
   Closed
 } derive(Eq, @debug.Debug)
+pub fn State::equal(Self, Self) -> Bool
+pub fn State::not_equal(Self, Self) -> Bool
+pub fn State::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

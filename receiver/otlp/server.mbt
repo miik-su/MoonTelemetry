@@ -205,19 +205,17 @@ pub async fn serve(
   health~ : () -> Json = () => ({ "status": "ready" } : Json),
 ) -> Unit {
   let permits = @async.Semaphore(cfg.max_connections)
-  @async.with_task_group(fn(group) {
+  @async.with_task_group(async fn(group) {
     for ;; {
       permits.acquire()
-      let (conn, _) = server.accept() catch {
-        e => {
-          permits.release()
-          raise e
-        }
+      let (conn, _) = {
+        errdefer permits.release()
+        server.accept()
       }
-      group.spawn_bg(fn() {
+      group.spawn_bg(async fn() {
         defer permits.release()
         defer conn.close()
-        @async.with_timeout(cfg.timeout_ms, fn() {
+        @async.with_timeout(cfg.timeout_ms, async fn() {
           handle(conn, cfg, consume, health)
         }) catch {
           _ => ()

@@ -25,6 +25,7 @@ pub(all) suberror RequestError {
   TooLarge
   BadEncoding
 } derive(@debug.Debug)
+pub fn RequestError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 

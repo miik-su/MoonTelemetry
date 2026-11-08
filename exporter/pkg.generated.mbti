@@ -22,6 +22,7 @@ pub(all) suberror ExportError {
   Transient
   InvalidResponse
 } derive(@debug.Debug)
+pub fn ExportError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct Destination {

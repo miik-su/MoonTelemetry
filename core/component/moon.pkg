@@ -1,3 +1,4 @@
 import {
+  "moonbitlang/core/debug",
   "miik-su/moontelemetry/core/data",
 }
