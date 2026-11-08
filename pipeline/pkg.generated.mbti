@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "miik-su/moontelemetry/pipeline"
+
+import {
+  "miik-su/moontelemetry/core/component",
+  "miik-su/moontelemetry/core/data",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Fanout {
+  queues : Array[Queue]
+}
+pub fn Fanout::new(Array[Queue]) -> Self
+pub fn Fanout::submit(Self, Packet) -> Unit raise @component.CollectorError
+
+pub struct Packet {
+  signal : @data.Signal
+  body : Bytes
+  count : Int32
+}
+pub fn Packet::count(Self) -> Int32
+pub fn Packet::decode(Self) -> @data.Envelope raise
+pub fn Packet::new(@data.Envelope) -> Self raise
+
+pub struct Queue {
+  slots : Array[Packet?]
+  max_bytes : Int32
+  mut head : Int32
+  mut tail : Int32
+  mut length : Int32
+  mut bytes : Int32
+  mut inflight : Packet?
+  mut accepting : Bool
+  mut accepted : Int64
+  mut delivered : Int64
+  mut dropped : Int64
+}
+pub fn Queue::can_accept(Self, Packet) -> Bool
+pub fn Queue::empty(Self) -> Bool
+pub fn Queue::finish(Self, rejected? : Int32) -> Unit
+pub fn Queue::new(capacity~ : Int32, max_bytes~ : Int32) -> Self raise @component.CollectorError
+pub fn Queue::push(Self, Packet) -> Bool
+pub fn Queue::stats(Self) -> Json
+pub fn Queue::stop(Self) -> Unit
+pub fn Queue::take(Self) -> Packet?
+
+// Type aliases
+
+// Traits

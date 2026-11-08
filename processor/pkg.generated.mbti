@@ -7,6 +7,7 @@ import {
 }
 
 // Values
+pub fn admit(@data.Envelope, Int32) -> Unit raise
 
 // Errors
 
@@ -17,6 +18,22 @@ pub(all) enum Action {
   Upsert(String, Json)
   Delete(String)
 }
+
+pub struct Batch {
+  signal : @data.Signal
+  size : Int32
+  timeout_ms : Int32
+  max_bytes : Int32
+  pending : Array[@data.Envelope]
+  mut records : Int32
+  mut bytes : Int32
+  mut since : Int64
+}
+pub fn Batch::can_accept(Self, @data.Envelope) -> Bool raise
+pub fn Batch::flush(Self) -> @data.Envelope?
+pub fn Batch::new(@data.Signal, size~ : Int32, timeout_ms~ : Int32, max_bytes~ : Int32) -> Self raise @component.CollectorError
+pub fn Batch::push(Self, @data.Envelope, now~ : Int64) -> Array[@data.Envelope] raise
+pub fn Batch::tick(Self, now~ : Int64) -> @data.Envelope?
 
 pub(all) enum Transform {
   Attributes(Array[Action])
