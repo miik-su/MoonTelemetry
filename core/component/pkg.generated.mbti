@@ -1,0 +1,59 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "miik-su/moontelemetry/core/component"
+
+import {
+  "miik-su/moontelemetry/core/data",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn builtins() -> Registry
+
+// Errors
+pub(all) suberror CollectorError {
+  Configuration(String)
+  Backpressure(String)
+  Stopped
+} derive(@debug.Debug)
+
+// Types and methods
+pub(all) enum Kind {
+  Receiver
+  Processor
+  Exporter
+} derive(Eq, @debug.Debug)
+
+pub struct Lifecycle {
+  mut state : State
+}
+pub fn Lifecycle::close(Self) -> Unit
+pub fn Lifecycle::drain(Self) -> Unit
+pub fn Lifecycle::new() -> Self
+pub fn Lifecycle::start(Self) -> Unit raise CollectorError
+pub fn Lifecycle::state(Self) -> State
+
+pub struct Registry {
+  entries : Map[String, Kind]
+}
+pub fn Registry::contains(Self, String, Kind) -> Bool
+pub fn Registry::new() -> Self
+pub fn Registry::register(Self, String, Kind) -> Unit raise CollectorError
+
+pub(all) enum State {
+  Created
+  Running
+  Draining
+  Closed
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits
+pub(open) trait Exporter {
+  async fn export(Self, @data.Envelope) -> Unit
+  async fn close(Self) -> Unit
+}
+
+pub(open) trait Processor {
+  fn process(Self, @data.Envelope) -> @data.Envelope raise
+}
