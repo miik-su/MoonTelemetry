@@ -38,9 +38,19 @@ moon run tests/external
 The harness sends six requests to MoonTelemetry (three signals, two ingress
 encodings), then fans out to JSON and protobuf destinations. Each shared
 destination reports six successful batches, zero failed batches/retries/rejected
-records. Official Collector debug output showed the synthetic log fields,
-metric points, trace/span IDs, resource/scope attributes and events. Both
-logical budgets returned to zero on shutdown. The helper was stopped afterwards.
+records. Go Collector forwards to a second MoonTelemetry instance and JSONL.
+Its queue/retries are disabled so the test observes immediate export results.
+The return receiver accepts all 12 requests without rejection. JSONL contains
+4 logs, 8 metric points and 4 spans. Every returned batch is compared against
+the original fixture's normalized envelope, including values, IDs, attributes,
+scope/resource fields and events. Both instances return logical/request budgets
+to zero on shutdown. The official helper is stopped after verification.
+
+Test listeners allow 64 KiB bodies. An earlier run with the default 32 MiB body
+reservation and Go's parallel queue produced expected 503 request-budget
+rejections. Small-fixture interop must not assume the conservative default
+budget permits unlimited concurrent worst-case requests. This overload result
+is separate from the final successful roundtrip configuration.
 
 Windows amd64 release asset:
 [otelcol_0.165.0_windows_amd64.tar.gz](https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.165.0/otelcol_0.165.0_windows_amd64.tar.gz).

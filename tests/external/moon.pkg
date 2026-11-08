@@ -3,6 +3,7 @@ import {
   "moonbitlang/async/http",
   "moonbitlang/async/fs",
   "moonbitlang/core/env",
+  "moonbitlang/core/json",
   "miik-su/moontelemetry/core/data",
   "miik-su/moontelemetry/config",
   "miik-su/moontelemetry/service",

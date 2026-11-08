@@ -6,6 +6,12 @@ receivers:
 exporters:
   debug:
     verbosity: detailed
+  otlp_http/moon:
+    endpoint: http://127.0.0.1:34318
+    sending_queue:
+      enabled: false
+    retry_on_failure:
+      enabled: false
 service:
   telemetry:
     metrics:
@@ -14,10 +20,10 @@ service:
   pipelines:
     logs:
       receivers: [otlp]
-      exporters: [debug]
+      exporters: [debug, otlp_http/moon]
     metrics:
       receivers: [otlp]
-      exporters: [debug]
+      exporters: [debug, otlp_http/moon]
     traces:
       receivers: [otlp]
-      exporters: [debug]
+      exporters: [debug, otlp_http/moon]

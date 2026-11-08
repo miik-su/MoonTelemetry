@@ -40,7 +40,8 @@ inference and enum representation. It defines no duplicate telemetry structs.
 `tools/check_protocol_metadata.mbtx` checks 40 descriptors against the pinned
 generated source; review the adapter when upgrading dependencies.
 
-Real Go Collector 0.165.0 received all three signals in both HTTP encodings;
+Real Go Collector 0.165.0 received all three signals in both HTTP encodings and
+forwarded them back to a second MoonTelemetry with fixture-equivalent contents;
 see [validation](docs/VALIDATION.md). This covers the committed fixtures and
 does not establish full OTLP conformance certification.
 
