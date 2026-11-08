@@ -4,15 +4,29 @@ permissions:
   contents: read
 jobs:
   key-checks:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: hustcer/setup-moonbit@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+        if: runner.os == 'Windows'
+      - uses: hustcer/setup-moonbit@87e2bdf5cf20d3b6f5c5f266a8a513f503bb5b76 # v1
       - run: moon update
+      - run: moon version --all
       - run: moon check --target native
       # Latest formatter migrates derive syntax; keep the source compatible
       # with the validated 20261023 toolchain and verify formatting parses.
       - run: moon fmt
+      - run: moon run tools/check_protocol_metadata.mbtx
+      - run: moon run tools/generate_metadata.mbtx
+      - run: git diff --exit-code -- core/component/version.generated.mbt
+      - run: moon info
+      - run: moon test --target native -p core/component
+      - run: moon test --target native -p pipeline
+      - run: moon test --target native -p extensions/memory
       - run: moon test --target native -p core/data
       - run: moon test --target native -p processor
       - run: moon test --target native -p config
