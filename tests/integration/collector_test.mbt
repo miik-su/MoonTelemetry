@@ -195,3 +195,36 @@ async test "gzip expansion is bounded and malformed streams fail" {
     },
   )
 }
+
+///|
+async test "concatenated gzip members share one decoded size limit" {
+  let source = @io.MemoryReader(async fn(w) {
+    for part in ["first", "second"] {
+      let encoder = @gzip.Encoder(w)
+      encoder.write(part)
+      encoder.end()
+    }
+  })
+  defer source.close()
+  let compressed = @otlp.read_body(source, 1024)
+  assert_eq(@otlp.decompress(compressed, 11), b"firstsecond")
+  assert_true(
+    try {
+      let _ = @otlp.decompress(compressed, 10)
+      false
+    } catch {
+      _ => true
+    },
+  )
+  assert_true(
+    try {
+      let _ = @otlp.decompress(
+        compressed[:compressed.length() - 1].to_owned(),
+        100,
+      )
+      false
+    } catch {
+      _ => true
+    },
+  )
+}
