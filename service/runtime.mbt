@@ -8,6 +8,8 @@ struct Route {
   mut complete : Bool
   mut filtered : Int64
   mut dropped : Int64
+  mut processed : Int64
+  mut shutdown_lost : Int64
 }
 
 ///|
@@ -75,6 +77,8 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
       complete: false,
       filtered: 0L,
       dropped: 0L,
+      processed: 0L,
+      shutdown_lost: 0L,
     })
   }
   if workspace + config.request_memory_budget_bytes.to_int64() >=
@@ -108,7 +112,7 @@ pub fn Runtime::submit(
     r.spec.signal == input.signal() && r.spec.receivers.contains(receiver)
   })
   if routes.is_empty() {
-    raise @component.Backpressure("no pipeline for receiver and signal")
+    raise @component.NotConfigured
   }
   for r in routes {
     for p in r.spec.processors {
@@ -127,10 +131,11 @@ pub fn Runtime::submit(
 pub fn Runtime::health(self : Runtime) -> Json {
   {
     "status": Json::string(
-      if self.lifecycle.state() == Running {
-        "ready"
-      } else {
-        "draining"
+      match self.lifecycle.state() {
+        Created => "created"
+        Running => "ready"
+        Draining => "draining"
+        Closed => "closed"
       },
     ),
     "logicalMemoryUsed": Json::string(self.budget.used().to_string()),
@@ -143,6 +148,9 @@ pub fn Runtime::health(self : Runtime) -> Json {
             "input": r.input.stats(),
             "filtered": Json::string(r.filtered.to_string()),
             "processorDropped": Json::string(r.dropped.to_string()),
+            "processedRecords": Json::string(r.processed.to_string()),
+            "processorFailedRecords": Json::string(r.dropped.to_string()),
+            "shutdownLostRecords": Json::string(r.shutdown_lost.to_string()),
             "outputs": Json::array(r.outputs.map(pair => pair.0.stats())),
           } : Json)
       }),
@@ -198,8 +206,12 @@ async fn process_loop(runtime : Runtime, route : Route) -> Unit {
             stage(route, input)
           }
           route.input.finish()
+          route.processed += input.count().to_int64()
         } catch {
-          _ => route.input.finish(rejected=packet.count())
+          _ => {
+            route.dropped += packet.count().to_int64()
+            route.input.finish(rejected=packet.count())
+          }
         }
       None => {
         if runtime.draining {
@@ -278,9 +290,24 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
     .iter()
     .filter(kv => self.routes.any(r => r.spec.receivers.contains(kv.0)))
     .collect()
+  let addresses : Array[@socket.Addr] = []
   for pair in active {
+    let address = @socket.Addr::resolve(pair.1.host, port=pair.1.port)
+    if addresses.any(a => a == address) {
+      raise @component.Configuration(
+        "receiver names resolve to the same listener endpoint",
+      )
+    }
+    addresses.push(address)
+  }
+  for address in addresses {
     servers.push(
-      @http.Server(@socket.Addr::resolve(pair.1.host, port=pair.1.port)),
+      @http.Server(address) catch {
+        _ =>
+          raise @component.Configuration(
+            "receiver endpoint unavailable: " + address.to_string(),
+          )
+      },
     )
   }
   let failure : Error? = try {
@@ -331,10 +358,10 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
         for route in self.routes {
           route.input.discard_all()
           if route.batch is Some(batch) && batch.flush() is Some(e) {
-            route.dropped += e.count().to_int64()
+            route.shutdown_lost += e.count().to_int64()
           }
           for p in route.pending {
-            route.dropped += p.count().to_int64()
+            route.shutdown_lost += p.count().to_int64()
           }
           route.pending.clear()
           for pair in route.outputs {

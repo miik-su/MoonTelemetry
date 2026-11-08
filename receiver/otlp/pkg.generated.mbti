@@ -15,7 +15,7 @@ pub async fn decompress(Bytes, Int32) -> Bytes
 
 pub fn json_encoding(String) -> Bool?
 
-pub async fn read_body(&@io.Reader, Int32) -> Bytes
+pub async fn read_body(&@io.Reader, Int32, idle_timeout_ms? : Int32) -> Bytes
 
 pub fn route(String) -> @data.Signal?
 

@@ -25,10 +25,17 @@ pub fn json_encoding(content_type : String) -> Bool? {
 }
 
 ///|
-pub async fn read_body(reader : &@io.Reader, limit : Int32) -> Bytes {
+pub async fn read_body(
+  reader : &@io.Reader,
+  limit : Int32,
+  idle_timeout_ms~ : Int32 = 10000,
+) -> Bytes {
   let b = @buffer.Buffer()
   for ;; {
-    match reader.read_some(max_len=(limit - b.length() + 1).min(8192)) {
+    match
+      @async.with_timeout(idle_timeout_ms, async fn() {
+        reader.read_some(max_len=(limit - b.length() + 1).min(8192))
+      }) {
       None => break
       Some(chunk) => {
         if chunk.length() > limit - b.length() {
@@ -115,8 +122,23 @@ async fn handle(
   budget : @component.MemoryBudget,
   requests : @component.MemoryBudget,
 ) -> Unit {
-  let request = conn.read_request()
+  let request = @async.with_timeout(cfg.header_timeout_ms, async fn() {
+    conn.read_request()
+  })
   if request.meth == Get && request.path == "/health" {
+    if !cfg.health_enabled {
+      failure(conn, 404, "not found", true)
+      return
+    }
+    if !cfg.health_token.is_empty() {
+      let supplied = request.headers
+        .get(@http.CaseInsensitiveString("Authorization"))
+        .unwrap_or("")
+      if !token_equal(supplied, "Bearer " + cfg.health_token) {
+        failure(conn, 401, "authentication required", true)
+        return
+      }
+    }
     respond(conn, 200, @utf8.encode(health().stringify()), true)
     return
   }
@@ -162,13 +184,21 @@ async fn handle(
   }
   defer budget.release(charge)
   let body = try {
-    let bytes = read_body(conn, cfg.max_body_bytes)
+    let bytes = read_body(
+      conn,
+      cfg.max_body_bytes,
+      idle_timeout_ms=cfg.body_idle_timeout_ms,
+    )
     if encoding == "gzip" {
       decompress(bytes, cfg.max_body_bytes)
     } else {
       bytes
     }
   } catch {
+    @async.TimeoutError => {
+      failure(conn, 408, "request body idle timeout", json)
+      return
+    }
     TooLarge => {
       failure(conn, 413, "request body too large", json)
       return
@@ -178,13 +208,22 @@ async fn handle(
       return
     }
   }
+  let started = @async.now()
   let input = @data.decode(signal, body, json~) catch {
     _ => {
       failure(conn, 400, "invalid OTLP payload", json)
       return
     }
   }
+  if @async.now() - started > cfg.processing_timeout_ms.to_int64() {
+    failure(conn, 503, "parsing time budget exceeded", json)
+    return
+  }
   let rejected = consume(input) catch {
+    @component.NotConfigured => {
+      failure(conn, 404, "signal pipeline not configured", json)
+      return
+    }
     @component.Backpressure(_) | @component.Stopped => {
       failure(conn, 503, "collector busy or draining", json)
       return
@@ -209,6 +248,16 @@ async fn handle(
     ),
     json,
   )
+}
+
+///|
+fn token_equal(a : String, b : String) -> Bool {
+  let mut different = a.length() ^ b.length()
+  for i in 0..<b.length() {
+    different = different |
+      ((if i < a.length() { a[i].to_int() } else { 0 }) ^ b[i].to_int())
+  }
+  different == 0
 }
 
 ///|
