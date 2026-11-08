@@ -37,9 +37,11 @@ pub fn Batch::tick(Self, now~ : Int64) -> @data.Envelope? raise
 
 pub(all) enum Transform {
   Redact(Array[String], body~ : Bool)
+  Redaction(keys~ : Array[String], allowlist~ : Array[String]?, remove~ : Bool, body~ : Bool)
   Attributes(Array[Action])
   Resource(Array[Action])
   DropAttribute(String, Json)
+  DropRecordIfAttributeEquals(String, Json)
 }
 pub fn Transform::process(Self, @data.Envelope) -> @data.Envelope raise
 pub impl @component.Processor for Transform

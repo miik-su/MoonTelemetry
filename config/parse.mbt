@@ -171,13 +171,29 @@ fn processor_spec(
   let p = "processors." + id
   match component_type(id) {
     "redaction" => {
-      fields(m, ["keys", "body"], p)
+      fields(m, ["keys", "body", "mode", "allowlist"], p)
       let keys = if m.contains("keys") {
         names(m, "keys", p)
       } else {
         ["authorization", "password", "token", "api_key", "secret"]
       }
-      Transform(@processor.Redact(keys, body=boolean(m, "body", false, p)))
+      let mode = text(m, "mode", "mask", p)
+      if mode != "mask" && mode != "remove" {
+        error(p, "redaction mode must be mask or remove")
+      }
+      let allowlist = if m.contains("allowlist") {
+        Some(names(m, "allowlist", p))
+      } else {
+        None
+      }
+      Transform(
+        @processor.Redaction(
+          keys~,
+          allowlist~,
+          remove=mode == "remove",
+          body=boolean(m, "body", false, p),
+        ),
+      )
     }
     "memory_limiter" | "payload_size_guard" => {
       fields(m, ["max_bytes"], p)
@@ -214,7 +230,9 @@ fn processor_spec(
       if key.is_empty() || !m.contains("equals") {
         error(p, "key and equals required")
       }
-      Transform(@processor.DropAttribute(key, m.get("equals").unwrap()))
+      Transform(
+        @processor.DropRecordIfAttributeEquals(key, m.get("equals").unwrap()),
+      )
     }
     _ => Plugin(factories.processor(component_type(id), j))
   }

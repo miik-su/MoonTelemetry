@@ -9,9 +9,16 @@ pub(all) enum Action {
 ///|
 pub(all) enum Transform {
   Redact(Array[String], body~ : Bool)
+  Redaction(
+    keys~ : Array[String],
+    allowlist~ : Array[String]?,
+    remove~ : Bool,
+    body~ : Bool
+  )
   Attributes(Array[Action])
   Resource(Array[Action])
   DropAttribute(String, Json)
+  DropRecordIfAttributeEquals(String, Json)
 }
 
 ///|
@@ -74,7 +81,9 @@ fn walk(
             let records = k == "logRecords" || k == "spans" || k == "dataPoints"
             let a = a.filter(v => {
               !(records &&
-              transform is DropAttribute(key, expected) &&
+              transform
+              is (DropAttribute(key, expected)
+              | DropRecordIfAttributeEquals(key, expected)) &&
               v is Object(fields) &&
               matches(
                 fields.get("attributes").unwrap_or(Json::array([])),
@@ -126,11 +135,23 @@ pub fn Transform::process(
   if self is Redact(keys, body~) {
     return @data.from_json(input.signal(), redact(input.to_json(), keys, body))
   }
+  if self is Redaction(keys~, allowlist~, remove~, body~) {
+    return @data.from_json(
+      input.signal(),
+      redact(input.to_json(), keys, body, allowlist~, remove~),
+    )
+  }
   @data.from_json(input.signal(), walk(input.to_json(), self, false, false))
 }
 
 ///|
-fn redact(j : Json, keys : Array[String], body : Bool) -> Json {
+fn redact(
+  j : Json,
+  keys : Array[String],
+  body : Bool,
+  allowlist~ : Array[String]? = None,
+  remove~ : Bool = false,
+) -> Json {
   match j {
     Object(m) => {
       let out : Map[String, Json] = Map([])
@@ -140,12 +161,28 @@ fn redact(j : Json, keys : Array[String], body : Bool) -> Json {
         out[k] = if (k == "value" && sensitive) || (k == "body" && body) {
           { "stringValue": "[REDACTED]" }
         } else {
-          redact(v, keys, body)
+          redact(v, keys, body, allowlist~, remove~)
         }
       }
       Json::object(out)
     }
-    Array(a) => Json::array(a.map(v => redact(v, keys, body)))
+    Array(a) =>
+      Json::array(
+        a
+        .filter(v => {
+          if v is Object(m) && m.get("key") is Some(String(k)) {
+            if allowlist is Some(allowed) &&
+              !allowed.any(name => name.to_lower() == k.to_lower()) {
+              return false
+            }
+            if remove && keys.any(name => name.to_lower() == k.to_lower()) {
+              return false
+            }
+          }
+          true
+        })
+        .map(v => redact(v, keys, body, allowlist~, remove~)),
+      )
     _ => j
   }
 }
