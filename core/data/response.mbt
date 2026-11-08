@@ -49,6 +49,9 @@ pub fn response(
 ///|
 pub fn rejected(signal : Signal, body : Bytes, json~ : Bool) -> Int64 raise {
   if body.is_empty() {
+    if json {
+      raise Invalid("empty JSON export response")
+    }
     return 0L
   }
   let n = if json {

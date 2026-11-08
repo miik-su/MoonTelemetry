@@ -211,7 +211,7 @@ fn write_json_field(
       @protobuf.write_sint32(b, x)
     }
     "int64" | "sf64" => {
-      let x : Int64 = @json.from_json(v)
+      let x : Int64 = @json.from_json(integer_json(v))
       if kind == "int64" {
         @protobuf.write_int64(b, x)
       } else {
@@ -219,7 +219,7 @@ fn write_json_field(
       }
     }
     "f64" => {
-      let x : UInt64 = @json.from_json(v)
+      let x : UInt64 = @json.from_json(integer_json(v))
       @protobuf.write_fixed64(b, x)
     }
     "double" => {
@@ -248,7 +248,7 @@ fn write_json_field(
           let x : Double = @json.from_json(v)
           @protobuf.write_double(packed, x)
         } else {
-          let x : UInt64 = @json.from_json(v)
+          let x : UInt64 = @json.from_json(integer_json(v))
           if kind == "packedUInt" {
             @protobuf.write_uint64(packed, x)
           } else {

@@ -103,7 +103,15 @@ pub fn decode(signal : Signal, body : Bytes, json~ : Bool) -> Envelope raise {
   if json {
     let text = @utf8.decode(body)
     validate_json_text(text)
-    return from_json(signal, @json.parse(text))
+    return from_json(
+      signal,
+      @json.parse(
+        text,
+        max_nesting_depth=64,
+        reject_duplicate_keys=true,
+        preserve_number_repr=true,
+      ),
+    )
   }
   validate_wire(body)
   validate_message(body, 0, body.length(), root_kind(signal), 0, [0, 0])

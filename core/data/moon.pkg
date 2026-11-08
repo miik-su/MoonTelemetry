@@ -8,3 +8,7 @@ import {
   "moonbit-community/opentelemetry/protocol/collector/metrics/v1" @metrics,
   "moonbit-community/opentelemetry/protocol/collector/trace/v1" @traces,
 }
+
+import {
+  "moonbitlang/core/encoding/utf8",
+} for "test"
