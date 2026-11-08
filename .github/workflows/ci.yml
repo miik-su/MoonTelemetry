@@ -14,10 +14,13 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
         if: runner.os == 'Windows'
       - uses: hustcer/setup-moonbit@87e2bdf5cf20d3b6f5c5f266a8a513f503bb5b76 # v1
+        with:
+          version: 0.10.20+65efd5b93
+          core-version: 0.10.20+65efd5b93
       - run: moon update
       - run: moon version --all
       - run: moon check --target native
-      # Latest formatter migrates derive syntax; keep the source compatible
+      # The CI formatter migrates derive syntax; keep the source compatible
       # with the validated 20261023 toolchain and verify formatting parses.
       - run: moon fmt
       - run: moon run tools/check_protocol_metadata.mbtx

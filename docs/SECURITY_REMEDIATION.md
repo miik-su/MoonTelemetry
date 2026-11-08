@@ -26,8 +26,8 @@ See [operations](OPERATIONS.md) for defaults and delivery contracts,
 [compatibility](../COMPATIBILITY.md) for protocol limits,
 [validation](VALIDATION.md) and [performance](PERFORMANCE.md) for evidence.
 
-Remaining qualification includes a fully reproducible compiler/transitive build
+Remaining qualification includes a fully reproducible transitive build
 chain, long-duration soak, deployment-host signal handling and sustained disk-full
 testing. No claim of full protocol certification, production readiness or
-exactly-once delivery is made. Root CI action pinning is implemented; installing
-the compiler still follows latest and must not be described as fully pinned.
+exactly-once delivery is made. Root CI actions, compiler and core versions are
+pinned. Transitive action tags and unenforced archive checksums remain gaps.

@@ -19,9 +19,10 @@ moon check, moon fmt and moon info pass locally. GitHub Actions runs key checks
 on Ubuntu and Windows. The main run for commit 4747559 passed both platforms:
 [workflow run](https://github.com/miik-su/MoonTelemetry/actions/runs/42491224845).
 Later commits require their own run; that result does not cover future changes.
-CI root actions are SHA-pinned. Compiler installation currently tracks latest;
-the action may also use tagged transitive actions. Toolchain reproducibility
-therefore remains incomplete.
+CI root actions are SHA-pinned. Compiler and core installation are fixed to
+0.10.20+65efd5b93; all four official Windows/Linux archive URLs were checked.
+The setup action still uses a tagged transitive action and does not enforce
+repository-pinned archive checksums. Supply-chain reproducibility is incomplete.
 
 ## External Go Collector interoperability
 
