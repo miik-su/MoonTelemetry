@@ -316,6 +316,30 @@ async fn workers(runtime : Runtime) -> Unit {
 
 ///|
 pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
+  errdefer @async.protect_from_cancel(async fn() {
+    self.lifecycle.close()
+    close_destinations(self)
+  })
+  self.run_inner(stop_after_ms?)
+}
+
+///|
+async fn close_destinations(runtime : Runtime) -> Unit {
+  @async.with_task_group(group => {
+    for destination in runtime.destinations {
+      group.spawn_bg(async fn() {
+        @async.with_timeout(runtime.config.shutdown_timeout_ms, async fn() {
+          destination.close()
+        }) catch {
+          _ => ()
+        }
+      })
+    }
+  })
+}
+
+///|
+async fn Runtime::run_inner(self : Runtime, stop_after_ms? : Int32) -> Unit {
   self.preflight()
   self.lifecycle.start()
   errdefer self.lifecycle.close()
@@ -420,17 +444,7 @@ pub async fn Runtime::run(self : Runtime, stop_after_ms? : Int32) -> Unit {
       }
     }
     self.lifecycle.close()
-    @async.with_task_group(group => {
-      for destination in self.destinations {
-        group.spawn_bg(async fn() {
-          @async.with_timeout(self.config.shutdown_timeout_ms, async fn() {
-            destination.close()
-          }) catch {
-            _ => ()
-          }
-        })
-      }
-    })
+    close_destinations(self)
   })
   if failure is Some(e) {
     raise e

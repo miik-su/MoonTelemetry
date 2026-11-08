@@ -76,6 +76,47 @@ impl @component.Exporter for Counting with fn close(self) {
 }
 
 ///|
+async test "startup bind failure closes instantiated exporters exactly once" {
+  let occupied = @http.Server(@socket.Addr::new(2130706433U, 0))
+  defer occupied.close()
+  let counts = [0, 0]
+  let factories = @component.Factories::new()
+  factories.register_exporter("count", _ => Counting::{ counts, })
+  let cfg : Json = {
+    "receivers": {
+      "otlp": { "port": Json::number(occupied.addr.port().to_double()) },
+    },
+    "exporters": { "count": {} },
+    "service": {
+      "pipelines": {
+        "logs": {
+          "receivers": ["otlp"],
+          "processors": [],
+          "exporters": ["count"],
+        },
+      },
+    },
+  }
+  let runtime = @service.Runtime::new(
+    @config.parse(cfg.stringify(), factories~),
+  )
+  for _ in 0..<2 {
+    assert_true(
+      try {
+        runtime.run(stop_after_ms=30)
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  assert_eq(counts, [0, 1])
+  let health = runtime.health().stringify()
+  assert_true(health.contains("\"status\":\"closed\""))
+  assert_true(health.contains("\"logicalMemoryUsed\":\"0\""))
+}
+
+///|
 async test "registered custom components execute without pipeline edits and close once" {
   let factories = @component.Factories::new()
   let counts = [0, 0]
