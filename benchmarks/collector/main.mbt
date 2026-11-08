@@ -1,7 +1,25 @@
 ///|
 async fn main {
   let args = @env.args()
-  let seconds = if args.length() > 1 && args[1] == "--soak" { 60 } else { 5 }
+  let seconds = if args.length() == 1 {
+    5
+  } else if args.length() == 2 && args[1] == "--soak" {
+    60
+  } else if args.length() == 3 && args[1] == "--seconds" {
+    let mut seconds = 0
+    for c in args[2] {
+      guard c >= '0' && c <= '9' && seconds <= 86400 else {
+        abort("--seconds must be an integer between 1 and 86400")
+      }
+      seconds = seconds * 10 + c.to_int() - 48
+    }
+    guard seconds >= 1 && seconds <= 86400 else {
+      abort("--seconds must be an integer between 1 and 86400")
+    }
+    seconds
+  } else {
+    abort("usage: collector [--soak | --seconds 1..86400]")
+  }
   let directory = @fs.tmpdir(prefix="moontelemetry-benchmark-")
   defer @fs.rmdir(directory, recursive=true)
   let temporary = @http.Server(@socket.Addr::new(2130706433U, 0))
@@ -35,6 +53,7 @@ async fn main {
   let body = @fs.read_file("tests/fixtures/logs.json").binary()
   let samples : Array[Int64] = Array::make(10000, 0L)
   let totals = [0, 0, 0]
+  let codes : Map[String, Int32] = Map([])
   let peak = [@memory.rss_bytes().unwrap_or(0L)]
   let start = @async.now()
   @async.with_task_group(async fn(group) {
@@ -68,6 +87,8 @@ async fn main {
               ]),
             )
             let _ = client.read_all()
+            let code = response.code.to_string()
+            codes[code] = codes.get(code).unwrap_or(0) + 1
             if response.headers
               .get(@http.CaseInsensitiveString("Connection"))
               .unwrap_or("")
@@ -117,6 +138,9 @@ async fn main {
     "accepted": Json::number(totals[0].to_double()),
     "rejected": Json::number(totals[1].to_double()),
     "transportErrors": Json::number(totals[2].to_double()),
+    "httpStatusCounts": Json::object(
+      codes.map((_, count) => Json::number(count.to_double())),
+    ),
     "acceptedPerSecond": Json::number(
       totals[0].to_double() / seconds.to_double(),
     ),
