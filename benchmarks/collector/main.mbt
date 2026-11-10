@@ -155,4 +155,7 @@ async fn main {
     "collector": runtime.health(),
   }
   println(output.stringify())
+  if @env.get_env_var("MOONTELEMETRY_BENCHMARK_RESULT_PATH") is Some(path) {
+    @fs.write_file(path, output.stringify() + "\n")
+  }
 }

@@ -159,4 +159,22 @@ async fn main {
   )
   println(health.stringify())
   println(returned_health.stringify())
+  if @env.get_env_var("MOONTELEMETRY_EXTERNAL_RESULT_PATH") is Some(path) {
+    let result : Json = {
+      "schemaVersion": 1,
+      "kind": "fixture_roundtrip",
+      "recordedAtUnixMs": Json::string(@async.now().to_string()),
+      "source": health,
+      "returned": returned_health,
+      "assertions": {
+        "ingressRequests": 6,
+        "returnedRequests": 12,
+        "logs": 4,
+        "metricPoints": 8,
+        "spans": 4,
+        "normalizedFixtureEquality": true,
+      },
+    }
+    @fs.write_file(path, result.stringify() + "\n")
+  }
 }
