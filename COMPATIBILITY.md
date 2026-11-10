@@ -46,6 +46,13 @@ see [validation](docs/VALIDATION.md). This covers the committed fixtures and
 does not establish full OTLP conformance certification.
 
 Not implemented: gRPC, receiver TLS termination, YAML, profiles, persistent
+queues and durable delivery guarantees. Metric validation is structural: it does
+not enforce every histogram bucket/count relationship, timestamp ordering,
+monotonicity or cross-request time-series business rule. Structurally accepted
+data is forwarded without silently repairing these semantics. A focused test
+documents this boundary in core/data/semantic_boundary_test.mbt.
+
+Other unimplemented integrations: gRPC, receiver TLS termination, YAML, profiles,
 queues, Prometheus ingestion, Kafka, tail sampling, remote configuration or
 cluster coordination. Bearer authentication and source-IP restrictions are
 available; use trusted TLS termination for remote deployment. HTTPS export

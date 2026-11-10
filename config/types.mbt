@@ -16,6 +16,12 @@ pub(all) enum ExporterSpec {
 }
 
 ///|
+pub struct ExportPolicy {
+  total_timeout_ms : Int32
+  max_retry_delay_ms : Int32
+}
+
+///|
 pub struct ReceiverSpec {
   host : String
   port : Int32
@@ -44,8 +50,10 @@ pub struct PipelineSpec {
 
 ///|
 pub struct Config {
+  delivery_policy : String
   limits : @data.Limits
   response_limits : Map[String, Int32]
+  export_policies : Map[String, ExportPolicy]
   memory_budget_bytes : Int32
   file_budget_bytes : Int32
   request_memory_budget_bytes : Int32

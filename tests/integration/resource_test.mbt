@@ -34,8 +34,8 @@ async test "request failure and cancellation release shared budgets" {
       "POST /v1/logs HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 128\r\n\r\n{",
     )
     @async.sleep(30)
-    assert_eq(requests.used(), 384L)
-    // A second request cannot reserve its worst-case body buffers.
+    assert_eq(requests.used(), 387L)
+    // The second initial read chunk cannot fit the remaining shared budget.
     assert_eq(
       post(
         "http://127.0.0.1:\{server.addr.port()}",

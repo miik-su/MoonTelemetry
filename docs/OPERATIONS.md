@@ -10,8 +10,12 @@ Synchronous parsing cannot be preempted mid-operation: complexity checks bound
 its work, and elapsed processing time is checked afterwards.
 
 service.memory_budget_bytes defaults to 1 GiB and request_memory_budget_bytes
-to 256 MiB. A request reserves three maximum-body buffers against both budgets
-before reading/decompression, even for a small request. Reservations release
+to 256 MiB. Reads grow reservations in chunks of at most 8 KiB, charging three
+logical buffer bytes per prospective byte before each read. Gzip expansion has
+its own growing reservation, and parsing reserves another three decoded-body
+bytes per byte before decoding. Both budgets must accept every increase atomically.
+The final one-byte body-limit probe is charged too. A small request no longer
+reserves three maximum-body buffers. Reservations release
 on success, failure, timeout and cancellation. max_total_connections defaults
 to 1024 and bounds configured listeners' combined connection limits.
 
@@ -49,6 +53,12 @@ processor failures, queue overflow/shutdown losses and per-destination export
 counts, retry attempts and safe error categories. It excludes request bodies
 and credentials. Counters reset on restart.
 
+`/health/live` reports HTTP 200 while the listener can answer. `/health/ready`
+returns 200 only for lifecycle status ready, otherwise 503. It does not promise
+capacity for every signal or destination. Both use the same health enablement,
+source restrictions and token policy. `/health` retains the legacy HTTP 200
+snapshot behavior; load balancers should use `/health/ready`.
+
 ## Queues and delivery
 
 Each pipeline owns an input queue and one queue per exporter attachment.
@@ -58,12 +68,27 @@ that destination's copy and increments overflowDropped; healthy outputs continue
 Distinct destinations run independently. A shared destination serializes all
 sends, including custom exporters, and reuses HTTP connections.
 
+`service.delivery_policy` defaults to `best_effort`. `reject_on_overload` also
+rejects admission with 503 when an attached output is already full or draining.
+This is early load shedding, not reserved output capacity: concurrent admission,
+processor expansion, later failures and crashes can still lose accepted copies.
+Neither mode is durable or guarantees all destinations receive an HTTP-200 input.
+Durable queues and durable at-least-once delivery remain unsupported.
+
 Input delivered means processing completed. Output delivered means a target
 accepted the response or a local append completed. Neither proves durable
 storage. Successful partial OTLP responses count rejected records without retry.
 Retryable HTTP codes are 429/502/503/504; transport failures also retry within
 the configured attempt count. retries: 0 disables retries. Exponential backoff
 includes random jitter and respects capped Retry-After seconds/HTTP dates.
+
+OTLP `attempt_timeout_ms` defaults to 10,000 ms. `timeout_ms` is a compatibility
+alias; specifying both is rejected. `total_timeout_ms` defaults to 30,000 ms and
+covers mutex waiting, requests and retry sleeps. `max_retry_delay_ms` defaults
+to 10,000 ms. If Retry-After or backoff cannot fit the delay/remaining-time policy,
+the batch is abandoned and counted, rather than retried earlier than requested.
+Total expiry releases the active client, budget and lock; waiting callers have
+their own total deadline. Cancellation for shutdown follows drain/loss accounting.
 
 Batch limits bound serialized retention. One request can exceed the batch
 record threshold while remaining within its byte bound. Overflow, filter
@@ -92,6 +117,12 @@ Factories validate without I/O. Processors return independent envelopes and
 must handle reuse across pipelines safely. Exporters report rejected counts
 and release resources in close. Each close has a deadline; a hung plugin does
 not prevent another plugin closing. Plugins are trusted code.
+
+For a stricter privacy starting point, use `examples/strict-security.json` and
+set distinct MOONTELEMETRY_INGEST_TOKEN / MOONTELEMETRY_HEALTH_TOKEN values.
+It masks every log body, removes non-allowlisted attributes and runs before all
+exporters. Review the allowlist for your data. The regular example retains body
+text; key redaction alone cannot remove secrets embedded in arbitrary free text.
 
 Shutdown stops admission, flushes batches and drains within shutdown_timeout_ms
 (default 30 s). Expiry records outstanding data as shutdown loss. Crashes can

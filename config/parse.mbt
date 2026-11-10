@@ -321,6 +321,7 @@ pub fn parse(
   let processors = Map([])
   let exporters = Map([])
   let response_limits = Map([])
+  let export_policies = Map([])
   let registry = @component.builtins()
   for
     id, j in object(root.get("receivers").unwrap_or(Json::null()), "receivers") {
@@ -442,7 +443,10 @@ pub fn parse(
       "otlp" => {
         fields(
           m,
-          ["endpoint", "json", "timeout_ms", "retries", "max_response_bytes"],
+          [
+            "endpoint", "json", "timeout_ms", "attempt_timeout_ms", "total_timeout_ms",
+            "max_retry_delay_ms", "retries", "max_response_bytes",
+          ],
           p,
         )
         response_limits[id] = number(
@@ -454,10 +458,33 @@ pub fn parse(
         )
         let endpoint = text(m, "endpoint", "", p)
         let _ = self_endpoint(endpoint)
+        if m.contains("timeout_ms") && m.contains("attempt_timeout_ms") {
+          error(p, "timeout_ms and attempt_timeout_ms are aliases; choose one")
+        }
+        export_policies[id] = ExportPolicy::{
+          total_timeout_ms: number(m, "total_timeout_ms", 30000, p, max=600000),
+          max_retry_delay_ms: number(
+            m,
+            "max_retry_delay_ms",
+            10000,
+            p,
+            max=600000,
+          ),
+        }
         Otlp(
           endpoint~,
           json=boolean(m, "json", false, p),
-          timeout_ms=number(m, "timeout_ms", 10000, p, max=600000),
+          timeout_ms=number(
+            m,
+            if m.contains("attempt_timeout_ms") {
+              "attempt_timeout_ms"
+            } else {
+              "timeout_ms"
+            },
+            10000,
+            p,
+            max=600000,
+          ),
           retries=number(m, "retries", 3, p, max=10, min=0),
         )
       }
@@ -470,10 +497,19 @@ pub fn parse(
     [
       "pipelines", "queue_capacity", "queue_bytes", "shutdown_timeout_ms", "memory_budget_bytes",
       "request_memory_budget_bytes", "max_total_connections", "file_budget_bytes",
+      "delivery_policy",
     ],
     "service",
   )
   let pipelines = []
+  let delivery_policy = text(
+    service, "delivery_policy", "best_effort", "service",
+  )
+  if delivery_policy != "best_effort" && delivery_policy != "reject_on_overload" {
+    error(
+      "service.delivery_policy", "expected best_effort or reject_on_overload; durable delivery is unsupported",
+    )
+  }
   for
     id, j in object(
       service.get("pipelines").unwrap_or(Json::null()),
@@ -590,9 +626,12 @@ pub fn parse(
   for id, r in receivers {
     if pipelines.any(p => p.receivers.contains(id)) {
       connections += r.max_connections.to_int64()
-      if r.max_body_bytes.to_int64() * 3L >
+      if (r.max_body_bytes + 1).min(8192).to_int64() * 3L >
         request_memory_budget_bytes.to_int64() {
-        error("receivers." + id, "request budget must cover three body buffers")
+        error(
+          "receivers." + id,
+          "request budget must cover the initial read chunk",
+        )
       }
     }
   }
@@ -601,9 +640,11 @@ pub fn parse(
   }
   {
     memory_budget_bytes,
+    delivery_policy,
     file_budget_bytes,
     limits,
     response_limits,
+    export_policies,
     request_memory_budget_bytes,
     max_total_connections,
     receivers,

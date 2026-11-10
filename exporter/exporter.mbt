@@ -5,6 +5,8 @@ pub struct Destination {
   mut client : @http.Client?
   mut closed : Bool
   max_response_bytes : Int32
+  total_timeout_ms : Int32
+  max_retry_delay_ms : Int32
   budget : @component.MemoryBudget?
   id : String
   mut successes : Int64
@@ -22,6 +24,8 @@ pub fn Destination::new(
   max_response_bytes~ : Int32 = 4194304,
   budget? : @component.MemoryBudget,
   id~ : String = "",
+  total_timeout_ms~ : Int32 = 30000,
+  max_retry_delay_ms~ : Int32 = 10000,
 ) -> Destination {
   {
     spec,
@@ -29,6 +33,8 @@ pub fn Destination::new(
     client: None,
     closed: false,
     max_response_bytes,
+    total_timeout_ms: total_timeout_ms.max(1),
+    max_retry_delay_ms: max_retry_delay_ms.max(1),
     budget,
     id,
     successes: 0L,
@@ -159,8 +165,30 @@ pub async fn Destination::send(
   self : Destination,
   input : @data.Envelope,
 ) -> Int32 {
+  let deadline = @async.now() + self.total_timeout_ms.to_int64()
+  @async.with_timeout(self.total_timeout_ms, async fn() {
+    self.send_serialized(input, deadline)
+  }) catch {
+    @async.TimeoutError => {
+      self.failures += 1L
+      self.rejected += input.count().to_int64()
+      self.last_error = "export_total_timeout"
+      self.last_failure_ms = @async.now()
+      input.count()
+    }
+    error => raise error
+  }
+}
+
+///|
+async fn Destination::send_serialized(
+  self : Destination,
+  input : @data.Envelope,
+  deadline : Int64,
+) -> Int32 {
   self.lock.acquire()
   defer self.lock.release()
+  errdefer self.reset_client()
   if self.closed {
     raise Permanent(503)
   }
@@ -190,7 +218,7 @@ pub async fn Destination::send(
       }
       self.last_failure_ms = @async.now()
     })
-    self.send_locked(input)
+    self.send_locked(input, deadline)
   }
   self.rejected += rejected.max(0).min(input.count()).to_int64()
   if rejected > 0 {
@@ -211,6 +239,7 @@ pub async fn Destination::send(
 async fn Destination::send_locked(
   self : Destination,
   input : @data.Envelope,
+  deadline : Int64,
 ) -> Int32 {
   match self.spec {
     Plugin(destination) => destination.send(input)
@@ -257,8 +286,19 @@ async fn Destination::send_locked(
     }
     Otlp(endpoint~, json~, timeout_ms~, retries~) =>
       for attempt = 0; ; attempt = attempt + 1 {
+        let remaining = deadline - @async.now()
+        if remaining <= 0 {
+          self.current_error = "export_total_timeout"
+          return input.count()
+        }
         try {
-          return send_once(self, endpoint, input, json, timeout_ms)
+          return send_once(
+            self,
+            endpoint,
+            input,
+            json,
+            timeout_ms.min(remaining.to_int()),
+          )
         } catch {
           Permanent(code) => {
             self.current_error = "http_permanent_\{code}"
@@ -279,7 +319,6 @@ async fn Destination::send_locked(
               self.current_error = "retry_exhausted"
               return input.count()
             }
-            self.retries += 1L
             let floor = match e {
               Transient(delay) => delay
               _ => 0
@@ -288,7 +327,14 @@ async fn Destination::send_locked(
               Some(b) => b[0].to_int() * retry_delay(attempt) / 510
               None => 0
             }
-            @async.sleep((retry_delay(attempt) + jitter).max(floor))
+            let delay = (retry_delay(attempt) + jitter).max(floor)
+            if delay > self.max_retry_delay_ms ||
+              delay.to_int64() >= deadline - @async.now() {
+              self.current_error = "retry_delay_exceeds_deadline_or_policy"
+              return input.count()
+            }
+            self.retries += 1L
+            @async.sleep(delay)
           }
         }
       }

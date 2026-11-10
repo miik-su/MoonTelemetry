@@ -37,6 +37,8 @@ pub struct Destination {
   mut client : @http.Client?
   mut closed : Bool
   max_response_bytes : Int32
+  total_timeout_ms : Int32
+  max_retry_delay_ms : Int32
   budget : @component.MemoryBudget?
   id : String
   mut successes : Int64
@@ -48,7 +50,7 @@ pub struct Destination {
   mut current_error : String
 }
 pub async fn Destination::close(Self) -> Unit
-pub fn Destination::new(@config.ExporterSpec, max_response_bytes? : Int32, budget? : @component.MemoryBudget, id? : String) -> Self
+pub fn Destination::new(@config.ExporterSpec, max_response_bytes? : Int32, budget? : @component.MemoryBudget, id? : String, total_timeout_ms? : Int32, max_retry_delay_ms? : Int32) -> Self
 pub async fn Destination::send(Self, @data.Envelope) -> Int32
 pub fn Destination::stats(Self) -> @json.Json
 

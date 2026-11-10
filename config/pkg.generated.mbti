@@ -18,8 +18,10 @@ pub fn parse(String, env? : (String) -> String?, factories? : @component.Factori
 
 // Types and methods
 pub struct Config {
+  delivery_policy : String
   limits : @data.Limits
   response_limits : Map[String, Int32]
+  export_policies : Map[String, ExportPolicy]
   memory_budget_bytes : Int32
   file_budget_bytes : Int32
   request_memory_budget_bytes : Int32
@@ -35,6 +37,11 @@ pub struct Config {
 pub struct Endpoint {
   origin : String
   base_path : String
+}
+
+pub struct ExportPolicy {
+  total_timeout_ms : Int32
+  max_retry_delay_ms : Int32
 }
 
 pub(all) enum ExporterSpec {

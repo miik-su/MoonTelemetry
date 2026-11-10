@@ -31,11 +31,23 @@ pub async fn read_body(
   limit : Int32,
   idle_timeout_ms~ : Int32 = 10000,
 ) -> Bytes {
+  read_reserved(reader, limit, idle_timeout_ms, _ => ())
+}
+
+///|
+async fn read_reserved(
+  reader : &@io.Reader,
+  limit : Int32,
+  idle_timeout_ms : Int32,
+  reserve : (Int32) -> Unit raise,
+) -> Bytes {
   let b = @buffer.Buffer()
   for ;; {
+    let chunk_limit = (limit - b.length() + 1).min(8192)
+    reserve(b.length() + chunk_limit)
     match
       @async.with_timeout(idle_timeout_ms, async fn() {
-        reader.read_some(max_len=(limit - b.length() + 1).min(8192))
+        reader.read_some(max_len=chunk_limit)
       }) {
       None => break
       Some(chunk) => {
@@ -51,6 +63,15 @@ pub async fn read_body(
 
 ///|
 pub async fn decompress(body : Bytes, limit : Int32) -> Bytes {
+  decompress_reserved(body, limit, _ => ())
+}
+
+///|
+async fn decompress_reserved(
+  body : Bytes,
+  limit : Int32,
+  reserve : (Int32) -> Unit raise,
+) -> Bytes {
   let source = @io.MemoryReader(async fn(w) { w.write(body) })
   defer source.close()
   let replays : Array[@io.MemoryReader] = []
@@ -61,7 +82,11 @@ pub async fn decompress(body : Bytes, limit : Int32) -> Bytes {
   let output = @buffer.Buffer()
   for _ in 0..<16 {
     let decoder = @gzip.Decoder(input)
-    output.write_bytes(read_body(decoder, limit - output.length()))
+    output.write_bytes(
+      read_reserved(decoder, limit - output.length(), 10000, target => {
+        reserve(output.length() + target)
+      }),
+    )
     match input.read_some(max_len=1) {
       None => return output.to_bytes()
       Some(first) => {
@@ -189,7 +214,8 @@ async fn handle(
       return
     }
   }
-  if request.meth == Get && request.path == "/health" {
+  if request.meth == Get &&
+    ["/health", "/health/live", "/health/ready"].contains(request.path) {
     if !cfg.health_enabled {
       failure(conn, 404, "not found", true)
       return
@@ -203,8 +229,17 @@ async fn handle(
         return
       }
     }
-    respond(conn, 200, @utf8.encode(health().stringify()), true)
-    stats.successes += 1L
+    let snapshot = health()
+    let ready = snapshot is Object(fields) &&
+      fields.get("status") == Some(Json::string("ready"))
+    let code = if request.path == "/health/ready" && !ready { 503 } else { 200 }
+    respond(conn, code, @utf8.encode(snapshot.stringify()), true)
+    if code == 200 {
+      stats.successes += 1L
+    } else {
+      stats.rejected += 1L
+      stats.last_status = code
+    }
     return
   }
   let signal = match route(request.path) {
@@ -246,30 +281,34 @@ async fn handle(
     failure(conn, 415, "unsupported content encoding", json)
     return
   }
-  // Reserve before allocation, covering compressed, expanded and decode buffers.
-  let charge = cfg.max_body_bytes.to_int64() * 3L
-  if !requests.reserve(charge) {
-    failure(conn, 503, "request memory budget exhausted", json)
-    return
-  }
-  defer requests.release(charge)
-  if !budget.reserve(charge) {
-    failure(conn, 503, "global memory budget exhausted", json)
-    return
-  }
-  defer budget.release(charge)
+  // Charge each phase before growth rather than reserving the maximum body.
+  let memory = RequestMemory::{ global: budget, requests, held: 0L, }
+  defer memory.release()
+  let raw_capacity = [0]
+  let expanded_capacity = [0]
   let body = try {
-    let bytes = read_body(
+    let bytes = read_reserved(
       conn,
       cfg.max_body_bytes,
-      idle_timeout_ms=cfg.body_idle_timeout_ms,
+      cfg.body_idle_timeout_ms,
+      target => reserve_growth(memory, raw_capacity, target),
     )
     if encoding == "gzip" {
-      decompress(bytes, cfg.max_body_bytes)
+      decompress_reserved(bytes, cfg.max_body_bytes, target => {
+        reserve_growth(memory, expanded_capacity, target)
+      })
     } else {
       bytes
     }
   } catch {
+    RequestBudgetExhausted => {
+      failure(conn, 503, "request memory budget exhausted", json)
+      return
+    }
+    GlobalBudgetExhausted => {
+      failure(conn, 503, "global memory budget exhausted", json)
+      return
+    }
     @async.TimeoutError => {
       failure(conn, 408, "request body idle timeout", json)
       return
@@ -280,6 +319,12 @@ async fn handle(
     }
     _ => {
       failure(conn, 400, "invalid request body or gzip stream", json)
+      return
+    }
+  }
+  memory.reserve(body.length().to_int64() * 3L) catch {
+    _ => {
+      failure(conn, 503, "parsing memory budget exhausted", json)
       return
     }
   }

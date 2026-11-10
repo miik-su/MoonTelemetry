@@ -1,0 +1,26 @@
+{
+  "receivers": { "otlp": {
+    "host": "127.0.0.1", "port": 4318, "max_body_bytes": 4194304,
+    "auth_token": "${env:MOONTELEMETRY_INGEST_TOKEN}",
+    "health_token": "${env:MOONTELEMETRY_HEALTH_TOKEN}"
+  } },
+  "processors": {
+    "payload_size_guard": { "max_bytes": 4194304 },
+    "redaction": {
+      "mode": "remove", "body": true,
+      "allowlist": ["service.name", "deployment.environment.name", "http.status_code", "route"]
+    },
+    "batch": { "size": 128, "timeout_ms": 500, "max_bytes": 4194304 }
+  },
+  "exporters": { "file": { "path": "strict-telemetry.jsonl", "max_bytes": 10485760, "max_files": 3 } },
+  "service": {
+    "delivery_policy": "reject_on_overload",
+    "memory_budget_bytes": 268435456, "request_memory_budget_bytes": 33554432,
+    "queue_bytes": 8388608, "file_budget_bytes": 33554432,
+    "pipelines": {
+      "logs": { "receivers": ["otlp"], "processors": ["payload_size_guard", "redaction", "batch"], "exporters": ["file"] },
+      "metrics": { "receivers": ["otlp"], "processors": ["payload_size_guard", "redaction", "batch"], "exporters": ["file"] },
+      "traces": { "receivers": ["otlp"], "processors": ["payload_size_guard", "redaction", "batch"], "exporters": ["file"] }
+    }
+  }
+}

@@ -39,11 +39,14 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
   let mut workspace = 0L
   let destinations = Map([])
   for id, spec in config.exporters {
+    let policy = config.export_policies.get(id)
     destinations[id] = @exporter.Destination::new(
       spec,
       max_response_bytes=config.response_limits.get(id).unwrap_or(4194304),
       budget~,
       id~,
+      total_timeout_ms=policy.map(p => p.total_timeout_ms).unwrap_or(30000),
+      max_retry_delay_ms=policy.map(p => p.max_retry_delay_ms).unwrap_or(10000),
     )
   }
   let routes = []
@@ -135,9 +138,14 @@ pub fn Runtime::submit(
       }
     }
   }
-  @pipeline.Fanout::new(routes.map(r => r.input)).submit(
-    @pipeline.Packet::new(input),
-  )
+  let packet = @pipeline.Packet::new(input)
+  if self.config.delivery_policy == "reject_on_overload" &&
+    routes.any(r => r.outputs.any(pair => !pair.0.can_accept(packet))) {
+    raise @component.Backpressure(
+      "an attached output is already full or draining",
+    )
+  }
+  @pipeline.Fanout::new(routes.map(r => r.input)).submit(packet)
   0
 }
 
@@ -153,6 +161,7 @@ pub fn Runtime::health(self : Runtime) -> Json {
       },
     ),
     "logicalMemoryUsed": Json::string(self.budget.used().to_string()),
+    "deliveryPolicy": Json::string(self.config.delivery_policy),
     "requestMemoryUsed": Json::string(self.requests.used().to_string()),
     "rssBytes": match @memory.rss_bytes() {
       Some(bytes) => Json::string(bytes.to_string())
