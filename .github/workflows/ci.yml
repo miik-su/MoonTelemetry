@@ -22,6 +22,8 @@ jobs:
       - run: moon check --target native
       - run: moon fmt --check
       - run: moon run tools/check_protocol_metadata.mbtx
+      - run: moon run tools/render_results.mbtx
+      - run: git diff --exit-code -- docs/results/benchmark.svg
       - run: moon run tools/generate_metadata.mbtx
       - run: git diff --exit-code -- core/component/version.generated.mbt
       - run: moon info
@@ -36,3 +38,18 @@ jobs:
       - run: moon test --target native -p service
       - run: moon test --target native -p tests/integration
       - run: moon run cmd/moontelemetry --target native -- validate --config examples/collector.json
+      - name: Measure short HTTP smoke workload
+        run: moon run benchmarks/collector --release -- --seconds 5
+        env:
+          MOONTELEMETRY_BENCHMARK_RESULT_PATH: _build/ci-benchmark.json
+      - name: Publish job summary and structured results
+        run: moon run tools/publish_ci_results.mbtx
+        env:
+          MOONTELEMETRY_KEY_CHECKS_PASSED: 'true'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: validation-results-${{ matrix.os }}
+          path: _build/ci-results/
+          retention-days: 30
+          if-no-files-found: warn

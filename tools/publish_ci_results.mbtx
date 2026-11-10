@@ -1,0 +1,53 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+async fn main {
+  let raw = @fs.read_file("_build/ci-benchmark.json").text()
+  let benchmark = @json.parse(raw, reject_duplicate_keys=true)
+  guard benchmark is Object(fields) else { abort("expected benchmark result") }
+  let os = @env.get_env_var("RUNNER_OS").unwrap_or("local")
+  let revision = @env.get_env_var("GITHUB_SHA").unwrap_or("local-unrecorded")
+  let run = @env.get_env_var("GITHUB_RUN_ID").unwrap_or("")
+  let repository = @env.get_env_var("GITHUB_REPOSITORY").unwrap_or("miik-su/MoonTelemetry")
+  let confirmed = @env.get_env_var("GITHUB_ACTIONS") == Some("true") && @env.get_env_var("MOONTELEMETRY_KEY_CHECKS_PASSED") == Some("true")
+  let metadata : Json = {
+    "schemaVersion": 1,
+    "kind": "ci_key_checks_and_smoke_benchmark",
+    "platform": Json::string(os),
+    "revision": Json::string(revision),
+    "workflowUrl": Json::string("https://github.com/" + repository + "/actions/runs/" + run),
+    "fullSuiteExecuted": false,
+    "keyCheckPackages": ["core/component", "pipeline", "extensions/memory", "core/data", "processor", "config", "exporter", "service", "tests/integration"],
+    "keyChecksConfirmed": Json::boolean(confirmed),
+    "keyChecks": Json::string(if confirmed { "preceding workflow steps succeeded; individual test logs remain in GitHub Actions" } else { "not assessed by this reporting script" }),
+    "benchmark": benchmark,
+    "limitations": "5-second shared-runner smoke measurement; RSS includes load generator; final-window latency; not comparable production sizing"
+  }
+  @fs.mkdir("_build/ci-results", recursive=true, allow_exist=true)
+  @fs.write_file("_build/ci-results/benchmark.raw.json", raw)
+  @fs.write_file("_build/ci-results/results.json", metadata.stringify() + "\n")
+  let value = (key : String) => fields.get(key).unwrap_or(Json::null()).stringify()
+  let report = "# MoonTelemetry validation results — " + os + "\n\n" +
+    "Revision: `" + revision + "`\n\n" +
+    (if confirmed { "Nine selected package checks, formatting, generated interfaces, protocol metadata and example validation passed. Individual test details are in the preceding job logs." } else { "This local report does not assess package test status; the reporting script only reads benchmark output." }) + " Full-suite tests were not run.\n\n" +
+    "| 5-second HTTP smoke measurement | Value |\n| --- | ---: |\n" +
+    "| Accepted requests | " + value("accepted") + " |\n" +
+    "| Rejected requests | " + value("rejected") + " |\n" +
+    "| Transport errors | " + value("transportErrors") + " |\n" +
+    "| Accepted requests/s | " + value("acceptedPerSecond") + " |\n" +
+    "| p99 ms (tail sample) | " + value("p99Ms") + " |\n" +
+    "| Peak harness RSS bytes | " + value("peakHarnessRssBytes") + " |\n\n" +
+    "Download the platform-specific `validation-results` artifact for raw JSON and run metadata. Shared-runner numbers are smoke evidence, not stable capacity measurements.\n"
+  @fs.write_file("_build/ci-results/README.md", report)
+  if @env.get_env_var("GITHUB_STEP_SUMMARY") is Some(path) {
+    @fs.write_file(path, report, append=true, create_mode=OpenOrCreate)
+  }
+  println("Wrote CI report and downloadable evidence under _build/ci-results")
+}
