@@ -11,7 +11,7 @@ async test "stalled destination overflows independently while file delivery cont
       "file": { "path": Json::string(path) },
       "otlp/slow": {
         "endpoint": Json::string("http://127.0.0.1:\{stalled.addr.port()}"),
-        "timeout_ms": 1000,
+        "timeout_ms": 10000,
         "retries": 1,
       },
     },
@@ -30,17 +30,43 @@ async test "stalled destination overflows independently while file delivery cont
   let runtime = @service.Runtime::new(@config.parse(cfg.stringify()))
   @async.with_task_group(async fn(group) {
     let target = group.spawn(async fn() {
-      stalled.run_forever(async fn(_, _, _) { @async.sleep(2000) })
+      stalled.run_forever(async fn(_, _, _) { @async.sleep(30000) })
     })
-    let collector = group.spawn(async fn() { runtime.run(stop_after_ms=1500) })
-    @async.sleep(60)
+    let collector = group.spawn(async fn() { runtime.run() })
+    @async.with_timeout(3000, async fn() {
+      for ;; {
+        let ready = try {
+          let client = @http.Client("http://127.0.0.1:24320")
+          defer client.close()
+          let response = client.get("/health")
+          let _ = client.read_all()
+          response.code == 200
+        } catch {
+          _ => false
+        }
+        if ready {
+          break
+        }
+        @async.sleep(10)
+      }
+    })
     let payload = @fs.read_file("tests/fixtures/logs.json").binary()
-    for _ in 0..<4 {
+    for i in 0..<4 {
       assert_eq(
         post("http://127.0.0.1:24320", "/v1/logs", payload, "application/json"),
         200,
       )
-      @async.sleep(40)
+      @async.with_timeout(3000, async fn() {
+        for ;; {
+          if runtime
+            .health()
+            .stringify()
+            .contains("\"successfulBatches\":\"\{i + 1}\"") {
+            break
+          }
+          @async.sleep(10)
+        }
+      })
     }
     // Check while the slow destination is still stuck in its first request.
     let lines = @fs.read_file(path)
@@ -52,6 +78,7 @@ async test "stalled destination overflows independently while file delivery cont
     assert_true(
       runtime.health().stringify().contains("\"overflowDropped\":\"3\""),
     )
+    collector.cancel()
     collector.wait()
     target.cancel()
   })
