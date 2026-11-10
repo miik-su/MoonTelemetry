@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MoonTelemetry synthetic fixture roundtrip result",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "recordedAtUnixMs", "source", "returned", "assertions"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "fixture_roundtrip" },
+    "recordedAtUnixMs": { "type": "string", "pattern": "^[0-9]+$" },
+    "source": { "$ref": "benchmark.schema.json#/$defs/health" },
+    "returned": { "$ref": "benchmark.schema.json#/$defs/health" },
+    "assertions": {
+      "type": "object",
+      "required": ["ingressRequests", "returnedRequests", "logs", "metricPoints", "spans", "normalizedFixtureEquality"],
+      "properties": {
+        "ingressRequests": { "type": "integer", "minimum": 0 },
+        "returnedRequests": { "type": "integer", "minimum": 0 },
+        "logs": { "type": "integer", "minimum": 0 },
+        "metricPoints": { "type": "integer", "minimum": 0 },
+        "spans": { "type": "integer", "minimum": 0 },
+        "normalizedFixtureEquality": { "type": "boolean" }
+      }
+    }
+  },
+  "additionalProperties": true
+}

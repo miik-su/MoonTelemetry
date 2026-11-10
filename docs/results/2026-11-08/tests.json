@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "kind": "verification_snapshot",
+  "implementationRevision": "b983286a559970e4ae0c7992ad98a97df54c6850",
+  "releaseRevision": "b292df1e103faef187ab824134b099960274b2c1",
+  "toolchain": "moonc 0.10.20+65efd5b93",
+  "fullSuiteExecuted": false,
+  "localFocusedTests": [
+    { "package": "core/data", "passed": 16, "failed": 0 },
+    { "package": "config", "passed": 7, "failed": 0 },
+    { "package": "tests/integration", "passed": 19, "failed": 0 }
+  ],
+  "localCountsSource": "recorded command summaries in docs/VALIDATION.md; not a retained per-case test log",
+  "ciRun": "https://github.com/miik-su/MoonTelemetry/actions/runs/42494274493",
+  "ciJobs": [
+    {
+      "platform": "windows-latest",
+      "conclusion": "success",
+      "startedAt": "2026-11-08T15:20:11Z",
+      "completedAt": "2026-11-08T15:21:32Z",
+      "url": "https://github.com/miik-su/MoonTelemetry/actions/runs/42494274493/job/128773067166"
+    },
+    {
+      "platform": "ubuntu-latest",
+      "conclusion": "success",
+      "startedAt": "2026-11-08T15:20:09Z",
+      "completedAt": "2026-11-08T15:20:45Z",
+      "url": "https://github.com/miik-su/MoonTelemetry/actions/runs/42494274493/job/128773067341"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+fn object(value : Json) -> Map[String, Json] {
+  guard value is Object(fields) else { abort("expected result object") }
+  fields
+}
+
+///|
+fn number(fields : Map[String, Json], key : String) -> Double {
+  guard fields.get(key) is Some(Number(value, ..)) else { abort("missing numeric result: " + key) }
+  value
+}
+
+///|
+fn text(x : Int, y : Int, value : String, size~ : Int = 15, color~ : String = "#334155") -> String {
+  "<text x='\{x}' y='\{y}' font-size='\{size}' fill='\{color}'>\{value}</text>"
+}
+
+///|
+fn bar(y : Int, value : Double, maximum : Double, color : String, label : String) -> String {
+  text(50, y + 20, label) +
+  "<rect x='155' y='\{y}' width='\{value / maximum * 660.0}' height='28' rx='4' fill='\{color}'/>" +
+  text(835, y + 20, value.to_string(), size=14)
+}
+
+///|
+async fn main {
+  let folder = "docs/results/2026-11-08/"
+  let summary = object(@json.parse(@fs.read_file(folder + "summary.json").text()))
+  guard summary.get("runs") is Some(Array(runs)) && runs.length() == 2 else { abort("expected two historical runs") }
+  let short = object(runs[0])
+  let long = object(runs[1])
+  let raw = object(@json.parse(@fs.read_file(folder + "soak-600.raw.json").text()))
+  for key in ["seconds", "accepted", "rejected", "transportErrors", "acceptedPerSecond"] {
+    assert_eq(number(raw, key), number(long, key))
+  }
+  let collector = object(raw["collector"])
+  guard collector.get("pipelines") is Some(Array(pipelines)) else { abort("missing pipeline evidence") }
+  let input = object(object(pipelines[0])["input"])
+  assert_eq(input.get("delivered"), Some(Json::string(number(long, "delivered").to_int64().to_string())))
+  let colors = ["#2563eb", "#0d9488"]
+  let mut svg = "<svg xmlns='http://www.w3.org/2000/svg' width='960' height='620' viewBox='0 0 960 620' role='img' aria-labelledby='title desc'><title id='title'>MoonTelemetry local HTTP benchmark results</title><desc id='desc'>Historical 60-second and 600-second runs with eight clients. Throughput, tail-sample latency and whole-harness RSS; not a production capacity guarantee.</desc><rect width='960' height='620' rx='16' fill='#f8fafc'/><g font-family='Arial, Helvetica, sans-serif'>"
+  svg += text(40, 42, "MoonTelemetry | local HTTP results", size=25, color="#0f172a")
+  svg += text(40, 70, "Windows x64 / MSVC | 8 clients | Native release | 2026-11-08", size=14)
+  svg += text(40, 105, "Accepted requests / second", size=19, color="#0f172a")
+  svg += bar(124, number(short, "acceptedPerSecond"), 3000.0, colors[0], "60 seconds")
+  svg += bar(165, number(long, "acceptedPerSecond"), 3000.0, colors[1], "600 seconds")
+  svg += text(40, 243, "Latency (ms): final 10,000 observations", size=18, color="#0f172a")
+  svg += text(555, 243, "Peak whole-process RSS (MiB)", size=18, color="#0f172a")
+  svg += "<path d='M60 415H475 M60 280V415' stroke='#cbd5e1' fill='none'/>"
+  for i, key in ["p50Ms", "p95Ms", "p99Ms"] {
+    let x = 105 + i * 125
+    for j, row in [short, long] {
+      let value = number(row, key)
+      let height = value * 6.0
+      svg += "<rect x='\{x + j * 36}' y='\{415.0 - height}' width='28' height='\{height}' rx='3' fill='\{colors[j]}'/>"
+      svg += text(x + j * 36 + 4, (403.0 - height).to_int(), value.to_string(), size=13)
+    }
+    svg += text(x + 6, 439, ["P50", "P95", "P99"][i], size=14)
+  }
+  for i, row in [short, long] {
+    let value = number(row, "peakHarnessRssBytes") / 1048576.0
+    let y = 293 + i * 78
+    svg += text(555, y - 9, if i == 0 { "60 seconds" } else { "600 seconds" }, size=14)
+    svg += "<rect x='555' y='\{y}' width='\{value / 16.0 * 260.0}' height='28' rx='4' fill='\{colors[i]}'/>"
+    svg += text(830, y + 20, ((value * 100.0).to_int().to_double() / 100.0).to_string(), size=14)
+  }
+  svg += "<rect x='45' y='478' width='14' height='14' rx='3' fill='#2563eb'/><rect x='195' y='478' width='14' height='14' rx='3' fill='#0d9488'/>"
+  svg += text(67, 490, "60-second run", size=14) + text(217, 490, "600-second run", size=14)
+  svg += text(40, 535, "600 s: " + number(long, "accepted").to_int64().to_string() + " accepted and delivered | " + number(long, "rejected").to_int64().to_string() + " HTTP 503 | " + number(long, "transportErrors").to_int64().to_string() + " transport errors", size=15)
+  svg += text(40, 562, "RSS includes the load generator. Latency is a rolling tail sample, not the entire run.", size=14)
+  svg += text(40, 587, "Single-host synthetic workload; see summary.json and original raw output for scope and provenance.", size=13)
+  svg += "</g></svg>\n"
+  @fs.write_file("docs/results/benchmark.svg", svg)
+  println("Validated historical measurements and regenerated docs/results/benchmark.svg")
+}

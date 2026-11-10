@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MoonTelemetry benchmark stdout",
+  "type": "object",
+  "required": ["seconds", "concurrency", "accepted", "rejected", "transportErrors", "acceptedPerSecond", "latencySampleCount", "p50Ms", "p95Ms", "p99Ms", "peakHarnessRssBytes", "finalHarnessRssBytes", "collector"],
+  "properties": {
+    "seconds": { "type": "integer", "minimum": 1 },
+    "concurrency": { "type": "integer", "minimum": 1 },
+    "accepted": { "type": "integer", "minimum": 0 },
+    "rejected": { "type": "integer", "minimum": 0 },
+    "transportErrors": { "type": "integer", "minimum": 0 },
+    "httpStatusCounts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+    "acceptedPerSecond": { "type": "number", "minimum": 0 },
+    "latencySampleCount": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "p50Ms": { "$ref": "#/$defs/decimalCount" },
+    "p95Ms": { "$ref": "#/$defs/decimalCount" },
+    "p99Ms": { "$ref": "#/$defs/decimalCount" },
+    "peakHarnessRssBytes": { "$ref": "#/$defs/decimalCount", "description": "Includes load generator; sampled process RSS peak" },
+    "finalHarnessRssBytes": { "$ref": "#/$defs/decimalCount" },
+    "collector": { "$ref": "#/$defs/health" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "decimalCount": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[0-9]+$" },
+        { "type": "integer", "minimum": 0 }
+      ]
+    },
+    "health": {
+      "type": "object",
+      "required": ["status", "logicalMemoryUsed", "requestMemoryUsed", "pipelines"],
+      "properties": {
+        "status": { "enum": ["created", "ready", "draining", "closed"] },
+        "logicalMemoryUsed": { "$ref": "#/$defs/decimalCount" },
+        "requestMemoryUsed": { "$ref": "#/$defs/decimalCount" },
+        "rssBytes": { "oneOf": [{ "$ref": "#/$defs/decimalCount" }, { "type": "null" }] },
+        "receivers": { "type": "object" },
+        "pipelines": { "type": "array", "items": { "type": "object", "required": ["id", "input", "outputs"] } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

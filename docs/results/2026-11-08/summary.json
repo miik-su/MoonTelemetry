@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-08",
+  "platform": "Windows x64 / MSVC",
+  "benchmarkToolchain": "moon 0.1.20261023 / moonc 0.10.17+d971670cd",
+  "workload": "8 HTTP clients, synthetic log fixture, batching, rotating JSONL; generator and Collector share one process",
+  "latencyScope": "final 10000 requests; not all-run percentiles",
+  "runs": [
+    {
+      "seconds": 60,
+      "evidence": "transcribed from docs/PERFORMANCE.md; original stdout was not retained",
+      "rawFile": null,
+      "accepted": 175806,
+      "rejected": 374,
+      "transportErrors": 0,
+      "acceptedPerSecond": 2930.1,
+      "p50Ms": 1,
+      "p95Ms": 17,
+      "p99Ms": 18,
+      "peakHarnessRssBytes": 13950976,
+      "finalHarnessRssBytes": 11821056,
+      "delivered": 175806,
+      "successfulFileBatches": 1382,
+      "failedFileBatches": 0,
+      "overflowDropped": 0,
+      "shutdownLost": 0
+    },
+    {
+      "seconds": 600,
+      "collectorSourceBase": "a97f7e0",
+      "evidence": "original retained benchmark stdout; configurable duration/status-count harness addition",
+      "rawFile": "soak-600.raw.json",
+      "accepted": 1728309,
+      "rejected": 4127,
+      "transportErrors": 0,
+      "acceptedPerSecond": 2880.515,
+      "p50Ms": 1,
+      "p95Ms": 17,
+      "p99Ms": 19,
+      "peakHarnessRssBytes": 14819328,
+      "finalHarnessRssBytes": 12062720,
+      "delivered": 1728309,
+      "successfulFileBatches": 13687,
+      "failedFileBatches": 0,
+      "overflowDropped": 0,
+      "shutdownLost": 0
+    }
+  ],
+  "limitations": [
+    "single host and synthetic workload",
+    "RSS includes load generator; it is not isolated service RSS",
+    "historical runs used an older compiler than current CI",
+    "not an RSS ceiling, daily soak, full-suite test, or production capacity guarantee"
+  ]
+}

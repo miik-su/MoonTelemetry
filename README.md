@@ -1,5 +1,7 @@
 # MoonTelemetry
 
+[![Native key checks](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml)
+
 版本 0.1.1，实验阶段。[安全整改记录](docs/SECURITY_REMEDIATION.md)。
 
 MoonBit 原生可观测性 Collector：接收 Logs、Metrics、Traces，按配置处理，
@@ -7,6 +9,21 @@ MoonBit 原生可观测性 Collector：接收 Logs、Metrics、Traces，按配�
 
 核心、网络服务、CLI、处理器、演示和基准均使用 MoonBit；网络与协议依赖
 moonbitlang/async 和 moonbit-community/opentelemetry 的生成模型。
+
+## 测试数据与模型展示
+
+![本机 HTTP 测试数据](docs/results/benchmark.svg)
+
+| 验证 | 结果 | 查看 |
+| --- | --- | --- |
+| 10 分钟、8 客户端 HTTP 负载 | 1,728,309 个请求接收并交付；0 传输错误；4,127 次 503 限流 | [原始 JSON](docs/results/2026-11-08/soak-600.raw.json) |
+| 关键测试历史快照 | 协议 16、配置 7、集成 19 项通过；Windows/Linux CI 通过 | [测试与 CI 证据](docs/results/2026-11-08/tests.json) |
+| 真实 Go Collector 双向互操作 | 两种编码、三种信号，回传内容与原始 fixture 一致 | [原始结果](docs/results/2026-11-10/interop.raw.json) |
+
+RSS 包含负载发生器，延迟取最后一万次观测，历史性能数据使用 0.10.17 工具链。
+这些是本机合成负载结果，不代表生产容量。完整来源、下载和复现方法见
+[结果展示页](docs/results/README.md)；模型结构见 [数据模型说明](docs/DATA_MODEL.md)。
+后续 CI 的 Summary 和 Artifacts 会提供各平台最新短测数据。
 
 ## 运行
 
