@@ -71,6 +71,8 @@ async fn main {
     @fs.read_file("tests/fixtures/logs.json").binary()
   }
   let samples : Array[Int64] = Array::make(10000, 0L)
+  let sample_ids : Array[Int32] = Array::make(10000, 0)
+  let next_sample = [128]
   let totals = [0, 0, 0]
   let codes : Map[String, Int32] = Map([])
   let peak = [@memory.rss_bytes().unwrap_or(0L)]
@@ -127,54 +129,67 @@ async fn main {
           defer (if retained_client is Some(client) { client.close() })
           while @async.now() - start[0] < seconds.to_int64() * 1000L {
             let before = @async.now()
-            @async.with_timeout(10000, async fn() {
-              let client = match retained_client {
-                Some(client) => client
-                None => {
-                  let client = @http.Client("http://127.0.0.1:\{port}")
-                  retained_client = Some(client)
-                  client
+            let outcome = Some(
+              @async.with_timeout(10000, async fn() {
+                let client = match retained_client {
+                  Some(client) => client
+                  None => {
+                    let client = @http.Client("http://127.0.0.1:\{port}")
+                    retained_client = Some(client)
+                    client
+                  }
                 }
-              }
-              let response = client.post(
-                "/v1/logs",
-                body,
-                extra_headers=Map::from_array([
-                  (
-                    @http.CaseInsensitiveString("Content-Type"),
-                    "application/json",
-                  ),
-                ]),
-              )
-              let _ = client.read_all()
-              let code = response.code.to_string()
-              codes[code] = codes.get(code).unwrap_or(0) + 1
-              if response.headers
-                .get(@http.CaseInsensitiveString("Connection"))
-                .unwrap_or("")
-                .to_lower() ==
-                "close" {
-                client.close()
-                retained_client = None
-              }
-              if response.code == 200 {
-                totals[0] += 1
-              } else {
-                totals[1] += 1
-              }
-            }) catch {
+                let response = client.post(
+                  "/v1/logs",
+                  body,
+                  extra_headers=Map::from_array([
+                    (
+                      @http.CaseInsensitiveString("Content-Type"),
+                      "application/json",
+                    ),
+                  ]),
+                )
+                let _ = client.read_all()
+                if response.headers
+                  .get(@http.CaseInsensitiveString("Connection"))
+                  .unwrap_or("")
+                  .to_lower() ==
+                  "close" {
+                  client.close()
+                  retained_client = None
+                }
+                response.code
+              }),
+            ) catch {
               _ => {
-                totals[2] += 1
                 if retained_client is Some(client) {
                   client.close()
                 }
                 retained_client = None
-                @async.sleep(10)
+                None
               }
+            }
+            // Finish timeout cleanup before assigning one unique sample ID.
+            // There is no suspension between counters and ring-buffer writes.
+            match outcome {
+              Some(code) => {
+                codes[code.to_string()] = codes
+                  .get(code.to_string())
+                  .unwrap_or(0) +
+                  1
+                if code == 200 {
+                  totals[0] += 1
+                } else {
+                  totals[1] += 1
+                }
+              }
+              None => totals[2] += 1
             }
             let n = totals[0] + totals[1] + totals[2]
             samples[(n - 1) % samples.length()] = @async.now() - before
-            if n % 128 == 0 {
+            sample_ids[(n - 1) % samples.length()] = n
+            if n >= next_sample[0] {
+              next_sample[0] = n + 128
               let now = @async.now()
               let rss = @memory.rss_bytes().unwrap_or(0L)
               peak[0] = peak[0].max(rss)
@@ -214,6 +229,9 @@ async fn main {
                 )
               }
             }
+            if outcome is None {
+              @async.sleep(10)
+            }
           }
         })
       }
@@ -223,6 +241,11 @@ async fn main {
     slow_task.cancel()
   })
   let count = (totals[0] + totals[1] + totals[2]).min(samples.length())
+  let completed = totals[0] + totals[1] + totals[2]
+  for i in 0..<count {
+    let sequence = completed - count + i + 1
+    assert_eq(sample_ids[(sequence - 1) % samples.length()], sequence)
+  }
   let values = samples[:count].to_owned()
   values.sort()
   let percentile = (p : Int32) => {
@@ -253,6 +276,7 @@ async fn main {
       totals[0].to_double() / seconds.to_double(),
     ),
     "latencySampleCount": Json::number(count.to_double()),
+    "latencySequenceVerified": true,
     "p50Ms": Json::string(percentile(50).to_string()),
     "p95Ms": Json::string(percentile(95).to_string()),
     "p99Ms": Json::string(percentile(99).to_string()),
