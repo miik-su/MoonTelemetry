@@ -20,6 +20,7 @@ jobs:
       - run: moon update
       - run: moon version --all
       - run: moon check --target native
+      - run: moon run tools/check_dependencies.mbtx --target native
       - run: moon fmt --check
       - run: moon run tools/check_protocol_metadata.mbtx
       - run: moon run tools/render_results.mbtx
@@ -36,6 +37,8 @@ jobs:
       - run: moon test --target native -p config
       - run: moon test --target native -p exporter
       - run: moon test --target native -p service
+      - run: moon test --target native -p cli
+      - run: moon test --target native -p receiver/otlp
       - run: moon test --target native -p tests/integration
       - run: moon run cmd/moontelemetry --target native -- validate --config examples/collector.json
       - name: Measure short HTTP smoke workload

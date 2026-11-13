@@ -24,7 +24,7 @@ async fn main {
     "revision": Json::string(revision),
     "workflowUrl": Json::string("https://github.com/" + repository + "/actions/runs/" + run),
     "fullSuiteExecuted": false,
-    "keyCheckPackages": ["core/component", "pipeline", "extensions/memory", "core/data", "processor", "config", "exporter", "service", "tests/integration"],
+    "keyCheckPackages": ["core/component", "pipeline", "extensions/memory", "core/data", "processor", "config", "exporter", "service", "cli", "receiver/otlp", "tests/integration"],
     "keyChecksConfirmed": Json::boolean(confirmed),
     "keyChecks": Json::string(if confirmed { "preceding workflow steps succeeded; individual test logs remain in GitHub Actions" } else { "not assessed by this reporting script" }),
     "benchmark": benchmark,
@@ -36,7 +36,7 @@ async fn main {
   let value = (key : String) => fields.get(key).unwrap_or(Json::null()).stringify()
   let report = "# MoonTelemetry validation results — " + os + "\n\n" +
     "Revision: `" + revision + "`\n\n" +
-    (if confirmed { "Nine selected package checks, formatting, generated interfaces, protocol metadata and example validation passed. Individual test details are in the preceding job logs." } else { "This local report does not assess package test status; the reporting script only reads benchmark output." }) + " Full-suite tests were not run.\n\n" +
+    (if confirmed { "Eleven selected package checks, formatting, generated interfaces, protocol metadata and example validation passed. Individual test details are in the preceding job logs." } else { "This local report does not assess package test status; the reporting script only reads benchmark output." }) + " Full-suite tests were not run.\n\n" +
     "| 5-second HTTP smoke measurement | Value |\n| --- | ---: |\n" +
     "| Accepted requests | " + value("accepted") + " |\n" +
     "| Rejected requests | " + value("rejected") + " |\n" +

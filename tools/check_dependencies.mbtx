@@ -1,0 +1,64 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+}
+----
+
+///|
+fn field(source : String, key : String) -> String raise {
+  let prefix = key + " = "
+  let lines = source.split("\n").filter(line => line.trim().has_prefix(prefix)).collect()
+  guard lines.length() == 1 else { abort("missing or repeated manifest field: " + key) }
+  let value = lines[0].trim().to_owned()[prefix.length():].to_owned()
+  guard @json.parse(value) is String(text) else { abort("manifest field must be string") }
+  text
+}
+
+///|
+fn imports(source : String) -> Array[String] {
+  let sections = source.split("import {").collect()
+  if sections.length() == 1 { return [] }
+  guard sections.length() == 2 else { abort("unexpected module import layout") }
+  let body = sections[1].to_owned().split("}").next().unwrap().to_owned().split("\"").collect()
+  let result = []
+  for i in 0..<body.length() { if i%2 == 1 { result.push(body[i].to_owned()) } }
+  result
+}
+
+///|
+async fn main {
+  guard @json.parse(@fs.read_file("tools/dependency-policy.json").text()) is Object(policy) else { abort("expected dependency policy") }
+  let allowed : Map[String,Bool] = Map([])
+  for name,spec in policy {
+    guard spec is Object(p) && p.get("version") is Some(String(version)) else { abort("invalid dependency policy") }
+    allowed[name+"@"+version] = true
+  }
+  let declared = imports(@fs.read_file("moon.mod").text())
+  assert_eq(declared.length(),policy.length())
+  for dependency in declared { assert_true(allowed.contains(dependency),msg="unapproved direct dependency: "+dependency) }
+  let windows = @env.get_env_var("RUNNER_OS") == Some("Windows") || @env.get_env_var("OS") == Some("Windows_NT")
+  let components = []
+  for name,spec in policy {
+    guard spec is Object(p) else { abort("expected policy object") }
+    let manifest_path = ".mooncakes/"+name+"/moon.mod"
+    let manifest = @fs.read_file(manifest_path).text()
+    for key in ["version","license","repository"] { assert_eq(Json::string(field(manifest,key)),p[key],msg=name+" "+key) }
+    assert_eq(field(manifest,"name"),name)
+    for dependency in imports(manifest) { assert_true(allowed.contains(dependency),msg="unapproved transitive dependency: "+dependency) }
+    let (code,stdout,_) = if windows { @process.collect_output("certutil",["-hashfile",manifest_path,"SHA256"],no_console_window=true) } else { @process.collect_output("sha256sum",[manifest_path],no_console_window=true) }
+    assert_eq(code,0)
+    let lines = @utf8.decode_lossy(stdout.binary()).split("\n").map(line=>line.trim().to_owned().to_lower()).collect()
+    let candidates = lines.map(line=>line.split(" ").next().unwrap_or("").to_owned()).filter(value=>value.length()==64 && value.iter().all(c=>(c>='0' && c<='9') || (c>='a' && c<='f')))
+    guard candidates.length() == 1 else { abort("cannot read manifest checksum") }
+    components.push(({ "type":"library", "name":Json::string(name), "version":p["version"], "licenses":[{ "expression":p["license"] }], "externalReferences":[{ "type":"vcs", "url":p["repository"] }], "properties":[{ "name":"moontelemetry:manifestSha256", "value":Json::string(candidates[0]) }] } : Json))
+  }
+  @fs.mkdir("_build/ci-results",recursive=true,allow_exist=true)
+  let report : Json = { "bomFormat":"CycloneDX", "specVersion":"1.5", "version":1, "components":Json::array(components), "properties":[{ "name":"moontelemetry:scope", "value":"Selected Mooncakes direct/transitive module manifests; hash is manifest-only, not complete package integrity or vulnerability attestation" },{ "name":"moontelemetry:sourceRevision", "value":Json::string(@env.get_env_var("GITHUB_SHA").unwrap_or("local-working-tree")) }] }
+  @fs.write_file("_build/ci-results/dependencies.cdx.json",report.stringify()+"\n")
+  println("Verified pinned versions, licenses, repositories and transitive module imports; wrote manifest provenance snapshot")
+}
