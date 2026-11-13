@@ -1,180 +1,192 @@
 ///|
+fn config_for(
+  port : Int32,
+  exporters : Json,
+  destinations : Array[String],
+) -> Json {
+  let pipelines : Map[String, Json] = Map([])
+  for name in ["logs", "metrics", "traces"] {
+    pipelines[name] = {
+      "receivers": ["otlp"],
+      "processors": [],
+      "exporters": Json::array(destinations.map(Json::string)),
+    }
+  }
+  {
+    "receivers": {
+      "otlp": {
+        "port": Json::number(port.to_double()),
+        "max_body_bytes": 65536,
+      },
+    },
+    "exporters": exporters,
+    "service": { "pipelines": Json::object(pipelines) },
+  }
+}
+
+///|
+fn signal_name(signal : @data.Signal) -> String {
+  match signal {
+    Logs => "logs"
+    Metrics => "metrics"
+    Traces => "traces"
+  }
+}
+
+///|
 async fn main {
   let endpoint = @env.get_env_var("MOONTELEMETRY_EXTERNAL_OTLP_ENDPOINT").unwrap_or(
     "http://127.0.0.1:14318",
   )
-  let cfg : Json = {
-    "receivers": { "otlp": { "port": 24318, "max_body_bytes": 65536 } },
-    "exporters": {
-      "otlp/json": {
-        "endpoint": Json::string(endpoint),
-        "json": true,
-        "retries": 0,
-      },
-      "otlp/protobuf": {
-        "endpoint": Json::string(endpoint),
-        "json": false,
-        "retries": 0,
-      },
-    },
-    "service": {
-      "pipelines": {
-        "logs": {
-          "receivers": ["otlp"],
-          "processors": [],
-          "exporters": ["otlp/json", "otlp/protobuf"],
-        },
-        "metrics": {
-          "receivers": ["otlp"],
-          "processors": [],
-          "exporters": ["otlp/json", "otlp/protobuf"],
-        },
-        "traces": {
-          "receivers": ["otlp"],
-          "processors": [],
-          "exporters": ["otlp/json", "otlp/protobuf"],
-        },
-      },
-    },
-  }
-  let runtime = @service.Runtime::new(@config.parse(cfg.stringify()))
+  let inputs = fixtures()
   let directory = @fs.tmpdir(prefix="moontelemetry-external-")
   defer @fs.rmdir(directory, recursive=true)
   let path = directory + "/returned.jsonl"
-  let returned_cfg : Json = {
-    "receivers": { "otlp": { "port": 34318, "max_body_bytes": 65536 } },
-    "exporters": { "file": { "path": Json::string(path) } },
-    "service": {
-      "pipelines": {
-        "logs": {
-          "receivers": ["otlp"],
-          "processors": [],
-          "exporters": ["file"],
+  let runtime = @service.Runtime::new(
+    @config.parse(
+      config_for(
+        24318,
+        {
+          "otlp/json": {
+            "endpoint": Json::string(endpoint),
+            "json": true,
+            "retries": 0,
+          },
+          "otlp/protobuf": {
+            "endpoint": Json::string(endpoint),
+            "json": false,
+            "retries": 0,
+          },
         },
-        "metrics": {
-          "receivers": ["otlp"],
-          "processors": [],
-          "exporters": ["file"],
-        },
-        "traces": {
-          "receivers": ["otlp"],
-          "processors": [],
-          "exporters": ["file"],
-        },
-      },
-    },
-  }
-  let returned = @service.Runtime::new(@config.parse(returned_cfg.stringify()))
+        ["otlp/json", "otlp/protobuf"],
+      ).stringify(),
+    ),
+  )
+  let returned = @service.Runtime::new(
+    @config.parse(
+      config_for(34318, { "file": { "path": Json::string(path) } }, ["file"]).stringify(),
+    ),
+  )
+  let expected_ingress = inputs.length() * 2
+  let expected_returned = inputs.length() * 4
   @async.with_task_group(async fn(group) {
-    group.spawn_bg(async fn() { returned.run(stop_after_ms=2500) })
-    group.spawn_bg(async fn() { runtime.run(stop_after_ms=1500) })
-    @async.sleep(50)
-    for name in ["logs", "metrics", "traces"] {
-      let signal = @data.signal_from_name(name).unwrap()
-      let input = @data.decode(
-        signal,
-        @fs.read_file("tests/fixtures/" + name + ".json").binary(),
-        json=true,
-      )
+    let sink = group.spawn(async fn() { returned.run() })
+    let source = group.spawn(async fn() { runtime.run() })
+    wait_ready("http://127.0.0.1:34318")
+    wait_ready("http://127.0.0.1:24318")
+    for fixture in inputs {
       for json in [true, false] {
-        let client = @http.Client("http://127.0.0.1:24318")
-        defer client.close()
-        let response = client.post(
-          signal.path(),
-          input.encode(json~),
-          extra_headers=Map::from_array([
-            (
-              @http.CaseInsensitiveString("Content-Type"),
-              if json {
-                "application/json"
-              } else {
-                "application/x-protobuf"
-              },
-            ),
-          ]),
+        println("Roundtrip fixture \{fixture.name}, JSON=\{json}")
+        let encoded = fixture.input.encode(json~)
+        let _ = @data.decode(fixture.signal, encoded, json~) catch {
+          @data.Invalid(message) => {
+            println(message)
+            abort(message)
+          }
+          error => raise error
+        }
+        assert_eq(
+          post("http://127.0.0.1:24318", fixture.signal, encoded, json),
+          200,
         )
-        assert_eq(response.code, 200)
-        let _ = client.read_all()
       }
     }
+    @async.with_timeout(15000, async fn() {
+      while successes(runtime.health(), "otlp/json") !=
+            expected_ingress.to_int64() ||
+            successes(runtime.health(), "otlp/protobuf") !=
+            expected_ingress.to_int64() ||
+            successes(returned.health(), "file") != expected_returned.to_int64() {
+        @async.sleep(10)
+      }
+    })
+    source.cancel()
+    source.wait()
+    sink.cancel()
+    sink.wait()
   })
+  let health = runtime.health()
   let returned_health = returned.health()
-  guard returned_health is Object(returned_root) &&
-    returned_root.get("receivers") is Some(Object(receivers)) &&
-    receivers.get("otlp") is Some(Object(receiver)) else {
-    abort("missing return receiver status")
+  for snapshot in [health, returned_health] {
+    guard snapshot is Object(root) else { abort("missing health") }
+    assert_eq(root.get("logicalMemoryUsed"), Some(Json::string("0")))
+    assert_eq(root.get("requestMemoryUsed"), Some(Json::string("0")))
   }
-  assert_eq(receiver.get("successfulRequests"), Some(Json::string("12")))
-  assert_eq(receiver.get("rejectedRequests"), Some(Json::string("0")))
-  assert_eq(returned_root.get("logicalMemoryUsed"), Some(Json::string("0")))
-  let output = @fs.read_file(path).text()
-  let lines = output.split("\n").filter(line => !line.is_empty()).collect()
-  assert_eq(lines.length(), 12)
+  let lines = @fs.read_file(path)
+    .text()
+    .split("\n")
+    .filter(line => !line.is_empty())
+    .collect()
+  assert_eq(lines.length(), expected_returned)
+  let seen : Map[String, Int32] = Map([])
   let totals : Map[String, Int32] = Map([])
-  let expected : Map[String, Json] = Map([])
-  for name in ["logs", "metrics", "traces"] {
-    expected[name] = @data.decode(
-      @data.signal_from_name(name).unwrap(),
-      @fs.read_file("tests/fixtures/" + name + ".json").binary(),
-      json=true,
-    ).to_json()
-  }
   for line in lines {
     let parsed = @json.parse(line)
-    for name in ["logs", "metrics", "traces"] {
-      let signal = @data.signal_from_name(name).unwrap()
-      let envelope = @data.from_json(signal, parsed)
-      let count = envelope.count()
-      if count > 0 {
-        assert_eq(envelope.to_json(), expected[name])
+    let mut matched = false
+    for fixture in inputs {
+      let envelope = @data.from_json(fixture.signal, parsed)
+      if envelope.count() > 0 && envelope.to_json() == fixture.canonical {
+        seen[fixture.name] = seen.get(fixture.name).unwrap_or(0) + 1
+        let name = signal_name(fixture.signal)
+        totals[name] = totals.get(name).unwrap_or(0) + envelope.count()
+        matched = true
+        break
       }
-      totals[name] = totals.get(name).unwrap_or(0) + count
+    }
+    if !matched {
+      println(parsed.stringify())
+      abort("returned batch differs from every expected fixture")
     }
   }
-  assert_eq(totals.get("logs"), Some(4))
-  assert_eq(totals.get("metrics"), Some(8))
-  assert_eq(totals.get("traces"), Some(4))
-  assert_true(output.contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
-  assert_true(output.contains("cccccccccccccccccccccccccccccccc"))
-  let health = runtime.health()
-  guard health is Object(root) &&
-    root.get("pipelines") is Some(Array(pipelines)) else {
-    abort("missing pipeline status")
+  for fixture in inputs {
+    assert_eq(seen.get(fixture.name), Some(4), msg=fixture.name)
   }
-  for p in pipelines {
-    guard p is Object(m) && m.get("outputs") is Some(Array(outputs)) else {
-      abort("missing exporter status")
-    }
-    for output in outputs {
-      guard output is Object(q) && q.get("destination") is Some(Object(d)) else {
-        abort("missing destination status")
-      }
-      assert_eq(d.get("failedBatches"), Some(Json::string("0")))
-      // Each shared destination receives two requests for each of three signals.
-      assert_eq(d.get("successfulBatches"), Some(Json::string("6")))
-    }
-  }
-  println(
-    "External Collector accepted both encodings and returned all three signals to MoonTelemetry JSONL",
+  let comparison = differential(
+    @env.get_env_var("MOONTELEMETRY_REFERENCE_OTLP_ENDPOINT").unwrap_or(
+      "http://127.0.0.1:14319",
+    ),
   )
-  println(health.stringify())
-  println(returned_health.stringify())
+  let result : Json = {
+    "schemaVersion": 2,
+    "kind": "fixture_roundtrip",
+    "recordedAtUnixMs": Json::string(@async.now().to_string()),
+    "sourceRevision": Json::string(
+      @env.get_env_var("MOONTELEMETRY_EXTERNAL_REVISION").unwrap_or(
+        @env.get_env_var("GITHUB_SHA").unwrap_or("working-tree"),
+      ),
+    ),
+    "source": health,
+    "returned": returned_health,
+    "counterScope": "receiver health counts include readiness probes; assertions count telemetry requests only",
+    "assertions": {
+      "ingressRequests": Json::number(expected_ingress.to_double()),
+      "returnedRequests": Json::number(expected_returned.to_double()),
+      "logs": Json::number(totals.get("logs").unwrap_or(0).to_double()),
+      "metricPoints": Json::number(
+        totals.get("metrics").unwrap_or(0).to_double(),
+      ),
+      "spans": Json::number(totals.get("traces").unwrap_or(0).to_double()),
+      "normalizedFixtureEquality": true,
+    },
+    "matrix": Json::array(
+      inputs.map(f => {
+        (
+          {
+            "fixture": Json::string(f.name),
+            "signal": Json::string(signal_name(f.signal)),
+            "recordsPerInput": Json::number(f.input.count().to_double()),
+            "ingressEncodings": ["json", "protobuf"],
+            "egressEncodings": ["json", "protobuf"],
+            "copiesCompared": 4,
+            "normalizedEquality": true,
+          } : Json)
+      }),
+    ),
+    "differential": comparison,
+  }
+  println("Expanded official Go Collector matrix passed")
+  println(result.stringify())
   if @env.get_env_var("MOONTELEMETRY_EXTERNAL_RESULT_PATH") is Some(path) {
-    let result : Json = {
-      "schemaVersion": 1,
-      "kind": "fixture_roundtrip",
-      "recordedAtUnixMs": Json::string(@async.now().to_string()),
-      "source": health,
-      "returned": returned_health,
-      "assertions": {
-        "ingressRequests": 6,
-        "returnedRequests": 12,
-        "logs": 4,
-        "metricPoints": 8,
-        "spans": 4,
-        "normalizedFixtureEquality": true,
-      },
-    }
     @fs.write_file(path, result.stringify() + "\n")
   }
 }

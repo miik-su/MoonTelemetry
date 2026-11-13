@@ -1,0 +1,31 @@
+{
+  "resourceMetrics": [{
+    "resource": { "attributes": [{ "key": "service.name", "value": { "stringValue": "expanded-metrics" } }] },
+    "schemaUrl": "https://opentelemetry.io/schemas/1.25.0",
+    "scopeMetrics": [
+      {
+        "scope": { "name": "expanded.metrics.a", "version": "1.0" },
+        "metrics": [
+          {
+            "name": "gauge.boundary", "unit": "1",
+            "gauge": { "dataPoints": [{
+              "timeUnixNano": "18446744073709551615", "asInt": "9223372036854775807",
+              "attributes": [{ "key": "kind", "value": { "stringValue": "gauge" } }],
+              "exemplars": [{ "timeUnixNano": "100", "asInt": "-9223372036854775808", "traceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "spanId": "1111111111111111", "filteredAttributes": [{ "key": "sample", "value": { "boolValue": true } }] }]
+            }] }
+          },
+          { "name": "sum.boundary", "sum": { "aggregationTemporality": 2, "isMonotonic": false, "dataPoints": [{ "startTimeUnixNano": "1", "timeUnixNano": "2", "asInt": "-9223372036854775808" }] } },
+          { "name": "histogram.boundary", "histogram": { "aggregationTemporality": 2, "dataPoints": [{ "timeUnixNano": "100", "count": "18446744073709551615", "bucketCounts": ["18446744073709551615"], "sum": 1.5, "min": 1.5, "max": 1.5 }] } }
+        ]
+      },
+      {
+        "scope": { "name": "expanded.metrics.b" },
+        "schemaUrl": "https://opentelemetry.io/schemas/1.24.0",
+        "metrics": [
+          { "name": "exponential", "exponentialHistogram": { "aggregationTemporality": 1, "dataPoints": [{ "timeUnixNano": "100", "count": "3", "sum": 4.5, "scale": 1, "zeroCount": "0", "positive": { "offset": -1, "bucketCounts": ["1", "2"] }, "min": 1, "max": 2, "zeroThreshold": 0.001 }] } },
+          { "name": "summary", "summary": { "dataPoints": [{ "timeUnixNano": "100", "count": "3", "sum": 4.5, "quantileValues": [{ "quantile": 0, "value": 1 }, { "quantile": 0.5, "value": 1.5 }, { "quantile": 1, "value": 2 }] }] } }
+        ]
+      }
+    ]
+  }]
+}

@@ -1,4 +1,9 @@
 receivers:
+  otlp/reference:
+    protocols:
+      http:
+        endpoint: 127.0.0.1:14319
+        max_request_body_size: 4096
   otlp:
     protocols:
       http:
@@ -18,6 +23,15 @@ service:
       level: none
       readers: []
   pipelines:
+    logs/reference:
+      receivers: [otlp/reference]
+      exporters: [debug]
+    metrics/reference:
+      receivers: [otlp/reference]
+      exporters: [debug]
+    traces/reference:
+      receivers: [otlp/reference]
+      exporters: [debug]
     logs:
       receivers: [otlp]
       exporters: [debug, otlp_http/moon]

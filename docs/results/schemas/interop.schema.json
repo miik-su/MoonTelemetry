@@ -4,7 +4,7 @@
   "type": "object",
   "required": ["schemaVersion", "kind", "recordedAtUnixMs", "source", "returned", "assertions"],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "enum": [1, 2] },
     "kind": { "const": "fixture_roundtrip" },
     "recordedAtUnixMs": { "type": "string", "pattern": "^[0-9]+$" },
     "source": { "$ref": "benchmark.schema.json#/$defs/health" },

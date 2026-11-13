@@ -1,0 +1,39 @@
+{
+  "resourceLogs": [
+    {
+      "resource": { "attributes": [{ "key": "service.name", "value": { "stringValue": "frontend" } }] },
+      "schemaUrl": "https://opentelemetry.io/schemas/1.25.0",
+      "scopeLogs": [
+        {
+          "scope": { "name": "expanded.logs", "version": "1.0", "attributes": [{ "key": "scope", "value": { "boolValue": true } }] },
+          "logRecords": [
+            {
+              "timeUnixNano": "18446744073709551615", "severityNumber": 1,
+              "body": { "arrayValue": { "values": [{ "stringValue": "nested" }, { "boolValue": true }] } },
+              "attributes": [
+                { "key": "signed.max", "value": { "intValue": "9223372036854775807" } },
+                { "key": "signed.min", "value": { "intValue": "-9223372036854775808" } },
+                { "key": "finite.double", "value": { "doubleValue": 1.5 } },
+                { "key": "raw.bytes", "value": { "bytesValue": "AP8=" } }
+              ]
+            },
+            {
+              "timeUnixNano": "100", "severityNumber": 17, "severityText": "ERROR",
+              "body": { "kvlistValue": { "values": [{ "key": "nested.int", "value": { "intValue": "42" } }] } },
+              "traceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "spanId": "1111111111111111"
+            }
+          ]
+        },
+        {
+          "scope": { "name": "expanded.secondary" },
+          "schemaUrl": "https://opentelemetry.io/schemas/1.24.0",
+          "logRecords": [{ "severityNumber": 24, "body": { "stringValue": "synthetic fatal record" } }]
+        }
+      ]
+    },
+    {
+      "resource": { "attributes": [{ "key": "service.name", "value": { "stringValue": "backend" } }] },
+      "scopeLogs": [{ "scope": { "name": "expanded.backend" }, "logRecords": [{ "severityNumber": 9, "body": { "bytesValue": "AQID" } }] }]
+    }
+  ]
+}
