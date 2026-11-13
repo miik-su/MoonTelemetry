@@ -1,87 +1,103 @@
-# Validation record — 2026-11-08
+# Validation record — 2026-11-13
 
-Current local/CI toolchain: moon 0.1.20261104 / moonc v0.10.20+65efd5b93,
-Native, Windows x64 / MSVC locally. Earlier load/interop measurements used
-moon 0.1.20261023 / moonc v0.10.17+d971670cd. Only affected packages and key integration targets were run;
-no full-suite test command was used.
+Toolchain: moon 0.1.20261104 / moonc 0.10.20+65efd5b93, Native.
+Local evidence uses Windows x64/MSVC; CI also exercises Ubuntu x64.
+Only selected packages and necessary integration scenarios are tested. No
+full-suite test command was used. Historical evidence remains separately dated.
 
-| Target | Focused evidence |
-| --- | --- |
-| core/data | 16 tests: exact integers, oneofs, repeated singular IDs, future enums, packed/unpacked, response boundaries, deterministic 6,000 malformed-byte decode attempts |
-| core/component / pipeline | Reservation rollback, in-flight accounting, fanout isolation and lifecycle |
-| processor | Transform order, nested redaction/allowlist/removal, mixed future-enum batches |
-| config | Seven tests: references, endpoints, auth policy, budgets, duplicates, environment and 600 deterministic configuration mutations |
-| exporter | Retry classification, partial responses and Retry-After seconds/date |
-| extensions/memory | Native RSS observation |
-| service / tests/integration | 19 integration tests: HTTP signal/encoding matrix, gzip boundaries and 300 mutations/member cap, slow body, auth/health/source controls, cancellation, destination isolation, plugin deadlines/startup failure cleanup, file failures/oversize archives, safe processor failure metadata and shutdown accounting |
-| tools | Generated version consistency and 40 upstream descriptors checked for field numbers/names, exact scalar/packed readers, repetition and oneofs |
+## Focused package checks
 
-moon check, moon fmt and moon info pass locally. GitHub Actions runs key checks
-on Ubuntu and Windows. The main run for implementation commit b983286 passed
-both platforms, including strict formatting and generated-interface checks:
-[workflow run](https://github.com/miik-su/MoonTelemetry/actions/runs/42494030842).
-Later implementation changes require their own run.
-CI root actions are SHA-pinned. Compiler and core installation are fixed to
-0.10.20+65efd5b93; all four official Windows/Linux archive URLs were checked.
-The setup action still uses a tagged transitive action and does not enforce
-repository-pinned archive checksums. Supply-chain reproducibility is incomplete.
+[Implementation 4f337e3, both platforms passed](https://github.com/miik-su/MoonTelemetry/actions/runs/43415697342):
 
-The isolated local Windows compiler archive matched the official archive SHA-256
-before extraction: bdff9a3b2d7c61a3adae2fe09221d3de63effc6cab28bfa0cbeb94fb0d529d79.
-It was installed under ignored _build without replacing the system toolchain.
-The core archive came from the fixed official HTTPS URL; a separate checksum
-URL was unavailable, so no independent core archive verification is claimed.
-The new toolchain passed 16 protocol, 7 configuration and 19 integration tests.
-An upstream async C stub emitted an EINVAL macro redefinition warning on MSVC;
-project MoonBit checks passed without source diagnostics.
+| Selected package | Passed tests per platform | Focus |
+| --- | ---: | --- |
+| core/component | 3 | Budgets and lifecycle |
+| pipeline | 2 | Reservations, in-flight and fanout accounting |
+| extensions/memory | 1 | Native RSS |
+| core/data | 19 | Exact integers, oneofs, future enums, unknown-field loss, metric sint32 boundaries and structural semantics |
+| processor | 5 | Processing order and privacy transforms |
+| config | 8 | Endpoint/auth/budget validation, export deadlines and deterministic mutations |
+| exporter | 2 | Response/retry classification |
+| service | 1 | Runtime contracts |
+| cli | 1 | Argument boundaries |
+| receiver/otlp | 2 | Decoding/admission boundaries |
+| tests/integration | 26 | Dynamic request reservations, export deadlines, readiness, privacy, overload policy and existing HTTP/file/plugin cases |
 
-## External Go Collector interoperability
+These counts describe that run. The subsequent explicit Linux `/dev/full`
+regression has its own lifecycle workflow; it must not be inferred from the
+26-test count. CI additionally checks formatting, generated interfaces/version,
+40 upstream descriptors, dependency policy and a five-second HTTP smoke run.
 
-A locally launched official OpenTelemetry Collector 0.165.0 accepted both
-HTTP/JSON and HTTP/Protobuf output for logs, metrics and traces.
-Configuration: examples/interop/otelcol.yaml. Harness: tests/external/main.mbt.
+## External implementation and model matrix
+
+The official Go Collector 0.165.0 is downloaded from its release with
+repository-pinned Windows/Linux archive SHA-256 values checked before extraction.
+See [helper lock](../tools/interop-lock.json) and
+[both-platform CI](https://github.com/miik-su/MoonTelemetry/actions/runs/43415697256).
+
+Six datasets × two ingress encodings × two export encodings produce 24 return
+batches. Every batch must equal the normalized fixture: 20 logs, 28 metric
+points and 16 spans in total. Expanded fixtures cover all five metric branches,
+negative exponential-histogram offsets, exemplars, resource/scope attributes,
+AnyValue forms, exact integer limits, parent/child spans, links and events.
+This is fixture interoperability, not full OTLP certification.
+
+Nine direct differential cases compare acceptance with Go. Both accept unknown
+JSON fields, future enums, exact numeric int64 and unpacked histogram values;
+both reject truncated protobuf and malformed JSON. Oversized bodies are rejected
+with MoonTelemetry 413 versus Go 400. All-zero IDs and duplicate JSON keys are
+rejected by this project's stricter profile while this Go configuration accepts
+them. Ordinary protobuf relay drops unknown fields; there is no transparent
+raw-forwarding contract. Metric semantics remain structural, without repairing
+histogram relationships or cross-request time-series semantics.
 
 ```sh
-otelcol --config examples/interop/otelcol.yaml
-moon run tests/external
+moon run tools/run_external_interop.mbtx --target native
 ```
 
-The harness sends six requests to MoonTelemetry (three signals, two ingress
-encodings), then fans out to JSON and protobuf destinations. Each shared
-destination reports six successful batches, zero failed batches/retries/rejected
-records. Go Collector forwards to a second MoonTelemetry instance and JSONL.
-Its queue/retries are disabled so the test observes immediate export results.
-The return receiver accepts all 12 requests without rejection. JSONL contains
-4 logs, 8 metric points and 4 spans. Every returned batch is compared against
-the original fixture's normalized envelope, including values, IDs, attributes,
-scope/resource fields and events. Both instances return logical/request budgets
-to zero on shutdown. The official helper is stopped after verification.
+The launcher manages helper readiness and cleanup. Raw results, sources and
+limitations are indexed in [the dated evidence](results/2026-11-13/README.md).
 
-Test listeners allow 64 KiB bodies. An earlier run with the default 32 MiB body
-reservation and Go's parallel queue produced expected 503 request-budget
-rejections. Small-fixture interop must not assume the conservative default
-budget permits unlimited concurrent worst-case requests. This overload result
-is separate from the final successful roundtrip configuration.
+## Mutation feedback and dependency provenance
 
-Windows amd64 release asset:
-[otelcol_0.165.0_windows_amd64.tar.gz](https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.165.0/otelcol_0.165.0_windows_amd64.tar.gz).
-Verified SHA-256 against the release checksum file before execution:
+The isolated Native fuzz worker uses real compiler coverage counter feedback.
+Newly covered inputs enter the mutation corpus; each input has a time and size
+bound, and crashes retain the input before failing the driver. The recorded
+local run completed 1,024 iterations, observed 936 counter slots and retained
+26 interesting mutations with zero crashes. This is not a coverage percentage,
+ASan run or security certification.
 
-```text
-e5db5558e57e05044c62998d3f635082f945f362920a335224360272b4aacc17
+```sh
+moon build tests/fuzzcase --target native --enable-coverage
+moon run tools/coverage_fuzz.mbtx --target native
+# Replay a retained case after building the worker:
+moon run tests/fuzzcase --target native -- _build/fuzz/current.json
+moon run tools/check_dependencies.mbtx --target native
 ```
 
-The binary is ignored under _build and is not distributed by this repository.
-This validates committed fixture interoperability with that Collector version;
-it is not certification of every possible OTLP field or backend.
+[Linux coverage workflow passed](https://github.com/miik-su/MoonTelemetry/actions/runs/43366262332).
+Dependency checks enforce the three declared/resolved module versions, repository
+and license policy, including transitive imports. The CycloneDX file hashes
+manifests only; it does not attest complete package integrity or absence of CVEs.
+Root CI actions and compiler/core versions are pinned. Tagged transitive setup
+actions and missing enforced compiler/core archive checksums remain gaps.
 
-## Load and remaining qualification
+## Load, faults and limits
 
-The 60-second and 600-second eight-client HTTP tests completed with zero transport
-errors and zero loss of accepted records. They accepted 175,806 and 1,728,309
-requests respectively. All 4,127 rejections in the longer run were HTTP 503.
-[Performance details and limits](PERFORMANCE.md) include RSS and latency.
+[Dated load records](results/2026-11-13/README.md) distinguish an older one-hour
+run affected by a latency-sampling race from corrected measurements. The old
+run's 11 transport errors are retained. No zero-error claim applies to it.
+RSS includes the load generator; concurrent work on the same host prevents
+interpreting these results as isolated production capacity.
 
-Long-duration soak, container deployment, console-signal behavior across
-platforms, isolated-process capacity measurements and production disk exhaustion
-remain qualification work. The current patch is experimental.
+Linux signal/crash/restart checks and the actual ENOSPC regression run in
+[Native lifecycle fault checks](https://github.com/miik-su/MoonTelemetry/actions/workflows/faults.yml).
+Signal checks require a pending acknowledged record to flush, beyond simply
+observing process termination. Hard termination/restart demonstrates volatile
+loss, not durable recovery. `/dev/full` exercises a low-level destination;
+service config correctly refuses device outputs. It does not simulate a whole
+deployment filesystem filling up.
+
+Multi-hour/day soak, container deployment, Windows console signals and sustained
+disk-exhaustion recovery still require qualification. The project remains
+experimental, with volatile queues and no exactly-once guarantee.

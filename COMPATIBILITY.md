@@ -40,9 +40,16 @@ the signal response. Empty protobuf is valid; empty JSON is invalid. Response
 reads default to 4 MiB and can be configured up to 64 MiB per exporter.
 429/502/503/504 and transport failures can retry. Retry-After supports seconds
 and IMF-fixdate, capped at one hour; retries include bounded random jitter.
+Each exporter also has an overall deadline (including lock wait and backoff),
+an attempt deadline and a maximum retry delay. A server-requested delay that
+cannot fit is abandoned rather than retried early. See the configuration
+defaults and delivery limits in [operations](docs/OPERATIONS.md).
 
 `core/data` contains field-dispatch metadata to adapt upstream JSON oneof
 inference and enum representation. It defines no duplicate telemetry structs.
+Metric protobuf writing also uses the adapter to correct upstream sint32
+length calculation for exponential-histogram offsets; focused boundary tests
+and the external fixture matrix cover this workaround.
 `tools/check_protocol_metadata.mbtx` checks 40 descriptors against the pinned
 generated source; review the adapter when upgrading dependencies.
 

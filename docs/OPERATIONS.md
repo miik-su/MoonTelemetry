@@ -58,6 +58,9 @@ returns 200 only for lifecycle status ready, otherwise 503. It does not promise
 capacity for every signal or destination. Both use the same health enablement,
 source restrictions and token policy. `/health` retains the legacy HTTP 200
 snapshot behavior; load balancers should use `/health/ready`.
+Health probes share the receiver listener and connection permits with telemetry.
+Reserve connection headroom for probes; a fully occupied persistent-connection
+limit may prevent a new probe from reaching the handler.
 
 ## Queues and delivery
 
@@ -128,4 +131,8 @@ Shutdown stops admission, flushes batches and drains within shutdown_timeout_ms
 (default 30 s). Expiry records outstanding data as shutdown loss. Crashes can
 lose volatile queues, and retry after interruption can duplicate delivery.
 No exactly-once or durable at-least-once guarantee is provided. Timed shutdown
-is tested; console-signal behavior needs deployment-host verification.
+is tested. Linux CI additionally checks SIGINT/SIGTERM with a pending record
+and a strong-kill/restart loss case; Windows console events and deployment-host
+supervisor behavior still need verification. On Linux, the async runtime retains
+the signal exit status after cleanup; a nonzero signal status alone does not
+mean flushing failed.

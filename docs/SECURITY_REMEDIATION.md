@@ -1,6 +1,6 @@
 # Security remediation record
 
-The 0.1.1 hardening work covers the following audit areas. These are implemented
+The current hardening work covers the following audit areas. These are implemented
 controls with focused regression evidence, not an independent security audit.
 
 | Area | Implemented |
@@ -26,8 +26,13 @@ See [operations](OPERATIONS.md) for defaults and delivery contracts,
 [compatibility](../COMPATIBILITY.md) for protocol limits,
 [validation](VALIDATION.md) and [performance](PERFORMANCE.md) for evidence.
 
+Recent changes add incremental request reservations, total export deadlines,
+separate liveness/readiness responses, opt-in overload admission rejection,
+strict privacy configuration, expanded external model tests, coverage feedback
+and manifest provenance. Dated evidence includes Linux signals and real ENOSPC.
+
 Remaining qualification includes a fully reproducible transitive build
-chain, long-duration soak, deployment-host signal handling and sustained disk-full
-testing. No claim of full protocol certification, production readiness or
+chain, multi-hour/day soak, deployment-host console handling and sustained disk-full
+recovery. No claim of full protocol certification, production readiness or
 exactly-once delivery is made. Root CI actions, compiler and core versions are
 pinned. Transitive action tags and unenforced archive checksums remain gaps.

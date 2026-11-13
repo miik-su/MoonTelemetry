@@ -1,7 +1,8 @@
 ///|
 // OTLP JSON field dispatch for the pinned upstream models. This adapter keeps
 // oneof field identity: upstream 0.1.8 FromJson guesses by value shape.
-// Models and binary serialization remain owned by the upstream dependency.
+// Models remain owned by the upstream dependency. The adapter also writes
+// metric protobuf lengths to work around upstream sint32 sizing mismatches.
 priv struct Field {
   number : Int32
   name : String

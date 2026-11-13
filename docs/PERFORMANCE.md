@@ -1,5 +1,9 @@
 # Local performance evidence
 
+This page retains historical measurements. Current dated matrix evidence and
+the older one-hour run's sampling limitation are in
+[2026-11-13 results](results/2026-11-13/README.md).
+
 Measured 2026-11-08 on Windows x64 / MSVC, Native release build,
 moon 0.1.20261023. Reproduce with:
 
