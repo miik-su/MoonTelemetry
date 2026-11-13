@@ -1,0 +1,24 @@
+name: Native lifecycle fault checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  linux-faults:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: hustcer/setup-moonbit@87e2bdf5cf20d3b6f5c5f266a8a513f503bb5b76
+        with:
+          version: 0.10.20+65efd5b93
+          core-version: 0.10.20+65efd5b93
+      - run: moon update
+      - run: moon build cmd/moontelemetry --target native --release
+      - run: moon run tools/fault_checks.mbtx --target native
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lifecycle-fault-results
+          path: _build/fault-results/
+          retention-days: 30
+          if-no-files-found: warn

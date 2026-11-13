@@ -1,0 +1,89 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/http",
+  "moonbitlang/async@0.22.5/socket",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/async@0.22.5/signal",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+fn config(port : Int, file : String) -> Json {
+  { "receivers":{ "otlp":{ "port":Json::number(port.to_double()) } }, "processors":{ "batch":{ "size":1024,"timeout_ms":600000,"max_bytes":65536 } }, "exporters":{ "file":{ "path":Json::string(file) } }, "service":{ "queue_bytes":65536,"shutdown_timeout_ms":2000,"pipelines":{ "logs":{ "receivers":["otlp"],"processors":["batch"],"exporters":["file"] } } } }
+}
+
+///|
+async fn health(url : String) -> Json {
+  let client = @http.Client(url)
+  defer client.close()
+  let response = client.get("/health/ready")
+  assert_eq(response.code,200)
+  @json.parse(client.read_all().text())
+}
+
+///|
+async fn wait_for(url : String, pending : Bool) -> Unit {
+  @async.with_timeout(10000,async fn() {
+    for ;; {
+      let ready = try {
+        let snapshot = health(url).stringify()
+        !pending || snapshot.contains("\"processedRecords\":\"1\"")
+      } catch { _ => false }
+      if ready { break }
+      @async.sleep(20)
+    }
+  })
+}
+
+///|
+async fn main {
+  guard @env.get_env_var("RUNNER_OS") == Some("Linux") else { abort("real SIGINT/SIGTERM fault checks run on Linux only") }
+  let base = "_build/native/release/build/cmd/moontelemetry/moontelemetry"
+  let executable = if @fs.exists(base+".exe") { base+".exe" } else { base }
+  guard @fs.exists(executable) else { abort("build the CLI in Native release mode first") }
+  let folder = "_build/fault-results"
+  @fs.mkdir(folder,recursive=true,allow_exist=true)
+  let results = []
+  for name in ["sigint","sigterm","crash","restart"] {
+    let reserve = @http.Server(@socket.Addr::new(2130706433U,0))
+    let port = reserve.addr.port()
+    reserve.close()
+    let file = folder + "/" + (if name=="restart" { "crash" } else { name }) + ".jsonl"
+    if name!="restart" && @fs.exists(file) { @fs.remove(file) }
+    let config_path = folder+"/"+name+".json"
+    @fs.write_file(config_path,config(port,file).stringify())
+    let log = @process.redirect_to_file(folder+"/"+name+".log",shared=true)
+    defer log.close()
+    @async.with_task_group(async fn(group) {
+      let graceful = name=="sigint" || name=="sigterm"
+      let handler = if graceful { @process.graceful_cancel(timeout=5000,signal=if name=="sigint" { @signal.SIGINT } else { @signal.SIGTERM }) } else { @process.hard_cancel() }
+      let child = @process.spawn(group,executable,["run","--config",config_path],stdout=log,stderr=log,cancel_handler=handler,no_console_window=true)
+      defer child.cancel()
+      let url = "http://127.0.0.1:\{port}"
+      wait_for(url,false)
+      if name!="restart" {
+        let client = @http.Client(url)
+        defer client.close()
+        let payload : Json = { "resourceLogs":[{ "scopeLogs":[{ "logRecords":[{ "body":{ "stringValue":Json::string("synthetic-"+name) } }] }] }] }
+        assert_eq(client.post("/v1/logs",payload,extra_headers=Map::from_array([(@http.CaseInsensitiveString("Content-Type"),"application/json")])).code,200)
+        let _ = client.read_all()
+        wait_for(url,true)
+      }
+      assert_false(@fs.exists(file),msg="record must still be in volatile batch before termination")
+      child.cancel()
+      let code = child.wait()
+      if graceful {
+        assert_eq(code,0)
+        assert_true(@fs.read_file(file).text().contains("synthetic-"+name))
+      } else { assert_false(@fs.exists(file)) }
+      results.push(({ "case":Json::string(name),"exitCode":Json::number(code.to_double()),"gracefulFlushVerified":Json::boolean(graceful),"acknowledgedBeforeTermination":Json::number(if name=="restart" { 0.0 } else { 1.0 }),"volatileRecordRecovered":Json::boolean(graceful) } : Json))
+    })
+  }
+  let report : Json = { "schemaVersion":1,"kind":"native_lifecycle_fault_checks","platform":"Linux","sourceRevision":Json::string(@env.get_env_var("GITHUB_SHA").unwrap_or("local-working-tree")),"command":"moon build cmd/moontelemetry --target native --release; moon run tools/fault_checks.mbtx --target native","cases":Json::array(results),"limits":"one synthetic pending record per signal check; abrupt restart intentionally demonstrates volatile loss, not crash recovery guarantees" }
+  @fs.write_file(folder+"/result.json",report.stringify()+"\n")
+  println(report.stringify())
+}
