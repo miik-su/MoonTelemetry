@@ -29,8 +29,16 @@ async fn checked(command : String, arguments : Array[String]) -> String {
 }
 
 ///|
+#cfg(platform="windows")
+fn host_platform() -> String { "Windows" }
+
+///|
+#cfg(not(platform="windows"))
+fn host_platform() -> String { "Linux" }
+
+///|
 async fn main {
-  let platform = @env.get_env_var("RUNNER_OS").unwrap_or(if @env.get_env_var("OS") == Some("Windows_NT") { "Windows" } else { "Linux" })
+  let platform = @env.get_env_var("RUNNER_OS").unwrap_or(host_platform())
   println("Interop platform: " + platform)
   guard @json.parse(@fs.read_file("tools/interop-lock.json").text()) is Object(lock) && lock.get(platform) is Some(Object(asset)) else { raise Failed("unsupported interop platform") }
   let folder = "_build/interop"
