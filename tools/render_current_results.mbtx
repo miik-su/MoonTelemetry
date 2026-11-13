@@ -1,0 +1,88 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+fn object(value : Json) -> Map[String,Json] {
+  guard value is Object(fields) else { abort("expected result object") }
+  fields
+}
+
+///|
+fn decimal(value : Json) -> Double {
+  match value {
+    Number(n,..) => n
+    String(s) => {
+      let mut n = 0.0
+      for c in s { guard c>='0' && c<='9' else { abort("expected decimal count") }; n=n*10.0+(c.to_int()-48).to_double() }
+      n
+    }
+    _ => abort("expected decimal result")
+  }
+}
+
+///|
+fn text(x : Int,y : Int,value : String,size~ : Int=15,color~ : String="#334155") -> String {
+  "<text x='\{x}' y='\{y}' font-size='\{size}' fill='\{color}'>\{value}</text>"
+}
+
+///|
+async fn main {
+  let folder = "docs/results/2026-11-13/"
+  let report = object(@json.parse(@fs.read_file(folder+"load-matrix.raw.json").text()))
+  guard report.get("runs") is Some(Array(runs)) && runs.length()==4 else { abort("expected four load scenarios") }
+  let names = ["Small / 8 clients","Small / 64 clients","512 KiB / 4 clients","Slow output / 8 clients"]
+  let mut svg = "<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='660' viewBox='0 0 1080 660' role='img' aria-labelledby='title desc'><title id='title'>MoonTelemetry dated load and delivery evidence</title><desc id='desc'>Four sixty-second synthetic Windows Native workloads. All file copies delivered; slow destination loses copies, shown separately. This is not isolated production capacity.</desc><rect width='1080' height='660' rx='16' fill='#f8fafc'/><g font-family='Arial, Helvetica, sans-serif'>"
+  svg += text(32,44,"MoonTelemetry | load and delivery evidence",size=27,color="#0f172a")
+  svg += text(32,74,"2026-11-13 | b741367 | Windows Native | 60 seconds per scenario",size=15)
+  svg += text(32,104,"Shared host; load generator and Collector in one process. Not a capacity comparison.",size=14)
+  for i,label in ["Scenario","Accepted","HTTP 503","Transport errors","P95 / P99 ms"] { svg+=text([32,315,495,650,860][i],151,label,size=15,color="#0f172a") }
+  for i,run in runs {
+    let row = object(run)
+    assert_eq(row.get("seconds"),Some(Json::number(60)))
+    assert_eq(row.get("latencySequenceVerified"),Some(Json::boolean(true)))
+    let health = object(row["collector"])
+    assert_eq(health.get("status"),Some(Json::string("closed")))
+    assert_eq(decimal(health["logicalMemoryUsed"]),0.0)
+    assert_eq(decimal(health["requestMemoryUsed"]),0.0)
+    let y = 195+i*48
+    svg += "<path d='M32 \{y+16}H1048' stroke='#e2e8f0'/>"
+    svg += text(32,y,names[i])
+    svg += text(315,y,decimal(row["accepted"]).to_int().to_string())
+    svg += text(495,y,decimal(row["rejected"]).to_int().to_string())
+    svg += text(650,y,decimal(row["transportErrors"]).to_int().to_string())
+    svg += text(860,y,decimal(row["p95Ms"]).to_int().to_string()+" / "+decimal(row["p99Ms"]).to_int().to_string())
+  }
+  let slow = object(runs[3])
+  guard object(slow["collector"]).get("pipelines") is Some(Array(pipelines)) && object(pipelines[0]).get("outputs") is Some(Array(outputs)) && outputs.length()==2 else { abort("missing slow destination ledger") }
+  let file = object(outputs[0])
+  assert_eq(decimal(file["delivered"]),decimal(slow["accepted"]))
+  let queue = object(outputs[1])
+  let delivered=decimal(queue["delivered"])
+  let failed=decimal(queue["dropped"])
+  let overflow=decimal(queue["overflowDropped"])
+  assert_eq(decimal(queue["shutdownLost"]),0.0)
+  assert_eq(delivered+failed,decimal(queue["accepted"]))
+  assert_eq(delivered+failed+overflow,decimal(slow["accepted"]))
+  svg+=text(32,404,"Slow destination: every admitted input copy must be accounted for",size=20,color="#0f172a")
+  let mut x=32.0
+  for i,n in [delivered,failed,overflow] {
+    let width=n/decimal(slow["accepted"])*1016.0
+    svg+="<rect x='\{x}' y='428' width='\{width}' height='38' fill='\{["#0d9488","#d97706","#dc2626"][i]}'/>"
+    x+=width
+  }
+  svg+=text(32,495,"Delivered: "+delivered.to_int().to_string(),color="#0f766e")
+  svg+=text(365,495,"Send failures: "+failed.to_int().to_string(),color="#92400e")
+  svg+=text(720,495,"Queue overflow: "+overflow.to_int().to_string(),color="#b91c1c")
+  svg+=text(32,533,"File destination delivered all "+decimal(file["delivered"]).to_int().to_string()+" records in the slow scenario; slow copies can be lost.",size=15)
+  svg+=text(32,566,"All scenarios: closed state, zero final logical/request budget and a verified latency sample window.",size=14)
+  svg+=text(32,600,"Latency is the final rolling sample. Retained raw JSON and progress files provide the full context.",size=14)
+  svg+=text(32,631,"Source: docs/results/2026-11-13/load-matrix.raw.json | Experimental; volatile delivery.",size=13)
+  svg+="</g></svg>\n"
+  @fs.write_file(folder+"load-matrix.svg",svg)
+  println("Verified raw load ledgers and regenerated dated matrix SVG")
+}

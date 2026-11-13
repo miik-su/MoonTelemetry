@@ -12,6 +12,10 @@ moonbitlang/async 和 moonbit-community/opentelemetry 的生成模型。
 
 ## 测试数据与模型展示
 
+![2026-11-13 负载与目标交付分解](docs/results/2026-11-13/load-matrix.svg)
+
+以下为历史数据图：
+
 ![本机 HTTP 测试数据](docs/results/benchmark.svg)
 
 | 验证 | 结果 | 查看 |

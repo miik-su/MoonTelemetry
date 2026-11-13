@@ -19,6 +19,8 @@ AnyValue、资源／scope、Span 父子关系／link／event。
 
 ## 修正采样后的 60 秒场景矩阵
 
+![当前场景矩阵与慢目标交付分解](load-matrix.svg)
+
 [完整原始结果](load-matrix.raw.json)，源码 b741367，Windows x64 Native release。
 四组均验证延迟窗口序号连续、正常关闭、逻辑／请求预算归零及队列计数守恒。
 
@@ -68,3 +70,13 @@ moon run tools/run_load_matrix.mbtx --target native
 CI 的 Summary 和 Artifacts 另存平台／提交及合成原始结果，保留 30 天。
 原始结果中的时间戳为 Unix 毫秒字符串，计数器和 64 位数值也可能使用十进制字符串。
 关键包测试范围见[验证记录](../../VALIDATION.md)，没有执行全量测试。
+
+仓库内还保存了[26 个可重放的合成变异样本](../../../tests/fuzz-corpus/README.md)。
+`moon run tools/replay_fuzz_corpus.mbtx --target native` 会重放这些输入；
+后续覆盖反馈运行也把它们作为起始语料，避免只保存在临时 CI Artifacts 中。
+本地已重放 26/26 通过；[2254dd9 Linux CI](https://github.com/miik-su/MoonTelemetry/actions/runs/43417808074)
+完成了固定语料重放和后续 1,024 次变异。
+负载矩阵另设 [Windows/Linux 独立工作流](https://github.com/miik-su/MoonTelemetry/actions/workflows/load-matrix.yml)，
+在相关工具修改时或手动启动，每组仅 60 秒，分别保留原始工件。
+图表通过 `moon run tools/render_current_results.mbtx --target native` 从原始文件生成，
+CI 校验图表与数据一致。

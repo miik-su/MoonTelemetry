@@ -25,6 +25,8 @@ jobs:
       - run: moon run tools/check_protocol_metadata.mbtx
       - run: moon run tools/render_results.mbtx
       - run: git diff --exit-code -- docs/results/benchmark.svg
+      - run: moon run tools/render_current_results.mbtx --target native
+      - run: git diff --exit-code -- docs/results/2026-11-13/load-matrix.svg
       - run: moon run tools/generate_metadata.mbtx
       - run: git diff --exit-code -- core/component/version.generated.mbt
       - run: moon info

@@ -1,0 +1,35 @@
+name: Bounded Native load matrix
+on:
+  workflow_dispatch:
+  push:
+    paths: ['benchmarks/collector/**', 'tools/run_load_matrix.mbtx', '.github/workflows/load-matrix.yml']
+  pull_request:
+    paths: ['benchmarks/collector/**', 'tools/run_load_matrix.mbtx', '.github/workflows/load-matrix.yml']
+permissions:
+  contents: read
+jobs:
+  load-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+        if: runner.os == 'Windows'
+      - uses: hustcer/setup-moonbit@87e2bdf5cf20d3b6f5c5f266a8a513f503bb5b76
+        with:
+          version: 0.10.20+65efd5b93
+          core-version: 0.10.20+65efd5b93
+      - run: moon update
+      - run: moon build benchmarks/collector --release --target native --target-dir _build/matrix-tests
+      - run: moon run tools/run_load_matrix.mbtx --target native
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: load-matrix-${{ matrix.os }}
+          path: _build/load-matrix/
+          retention-days: 30
+          if-no-files-found: warn
