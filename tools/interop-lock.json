@@ -1,0 +1,13 @@
+{
+  "version": "0.165.0",
+  "Windows": {
+    "url": "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.165.0/otelcol_0.165.0_windows_amd64.tar.gz",
+    "sha256": "e5db5558e57e05044c62998d3f635082f945f362920a335224360272b4aacc17",
+    "executable": "otelcol.exe"
+  },
+  "Linux": {
+    "url": "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.165.0/otelcol_0.165.0_linux_amd64.tar.gz",
+    "sha256": "78570dd4bd6570bc41eb327869ef913bbf91b87dd8170ebebbf43bec71f6370d",
+    "executable": "otelcol"
+  }
+}

@@ -1,0 +1,94 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/http",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+}
+----
+
+///|
+#derive(Debug)
+suberror Failure { Failed(String) }
+
+///|
+fn string(fields : Map[String,Json], key : String) -> String {
+  guard fields.get(key) is Some(String(value)) else { abort("missing lock field: " + key) }
+  value
+}
+
+///|
+async fn checked(command : String, arguments : Array[String]) -> String {
+  println("Interop step: " + command)
+  let (code,stdout,stderr) = @process.collect_output(command,arguments[:],no_console_window=true)
+  if code != 0 { println(@utf8.decode_lossy(stderr.binary())); raise Failed("command failed: " + command) }
+  @utf8.decode_lossy(stdout.binary())
+}
+
+///|
+async fn main {
+  let platform = @env.get_env_var("RUNNER_OS").unwrap_or(if @env.get_env_var("OS") == Some("Windows_NT") { "Windows" } else { "Linux" })
+  println("Interop platform: " + platform)
+  guard @json.parse(@fs.read_file("tools/interop-lock.json").text()) is Object(lock) && lock.get(platform) is Some(Object(asset)) else { raise Failed("unsupported interop platform") }
+  let folder = "_build/interop"
+  @fs.mkdir(folder,recursive=true,allow_exist=true)
+  let archive = folder + "/otelcol.tar.gz"
+  if !@fs.exists(archive) {
+    let _ = checked("curl",["--fail","--location","--retry","2","--output",archive,string(asset,"url")])
+  }
+  let checksum = if platform == "Windows" {
+    checked("certutil",["-hashfile",archive,"SHA256"])
+  } else { checked("sha256sum",[archive]) }
+  let expected = string(asset,"sha256")
+  guard expected.length() == 64 && checksum.split("\n").any(line => {
+    let line = line.trim().to_owned().to_lower()
+    line == expected || line.has_prefix(expected + " ")
+  }) else { raise Failed("official Collector archive checksum mismatch") }
+  let _ = checked("tar",["-xzf",archive,"-C",folder,string(asset,"executable")])
+  let executable = folder + "/" + string(asset,"executable")
+  let version = checked(executable,["--version"])
+  guard version.contains(string(lock,"version")) else { raise Failed("unexpected Collector version") }
+  let _ = checked(executable,["validate","--config","examples/interop/otelcol.yaml"])
+  let moon = match @env.get_env_var("MOON_HOME") {
+    Some(home) => home + "/bin/" + (if platform == "Windows" { "moon.exe" } else { "moon" })
+    None => "moon"
+  }
+  let log = @process.redirect_to_file(folder+"/official-collector.log",shared=true)
+  defer log.close()
+  @async.with_task_group(async fn(group) {
+    let collector = @process.spawn(group,executable,["--config","examples/interop/otelcol.yaml"],stdout=log,stderr=log,no_console_window=true,cancel_handler=@process.hard_cancel())
+    defer collector.cancel()
+    @async.with_timeout(10000,async fn() {
+      for ;; {
+        let ready = try {
+          let probe = @http.Client("http://127.0.0.1:14319")
+          defer probe.close()
+          let response = probe.post("/v1/logs",b"{}",extra_headers=Map::from_array([(@http.CaseInsensitiveString("Content-Type"),"application/json")]))
+          let _ = probe.read_all()
+          response.code == 200
+        } catch { _ => false }
+        if ready { break }
+        @async.sleep(20)
+      }
+    })
+    let (code,stdout,stderr) = @async.with_timeout(90000,async fn() {
+      @process.collect_output(moon,["run","tests/external","--target","native"],no_console_window=true,extra_env={"MOONTELEMETRY_EXTERNAL_RESULT_PATH":folder+"/expanded.result.json"})
+    })
+    @fs.write_file(folder+"/harness.stdout.txt",stdout.text())
+    @fs.write_file(folder+"/harness.stderr.txt",stderr.text())
+    collector.cancel()
+    let _ = collector.wait()
+    if code != 0 { println(stderr.text()); println(stdout.text()); raise Failed("external matrix failed; see interop artifacts") }
+  })
+  let result = @fs.read_file(folder+"/expanded.result.json").text()
+  guard @json.parse(result) is Object(root) && root.get("matrix") is Some(Array(matrix)) && root.get("differential") is Some(Array(differential)) else { raise Failed("missing matrix results") }
+  let report = "## Official Go Collector interoperability\n\n" + version.trim().to_owned() + "\n\nArchive SHA-256 verified against tools/interop-lock.json.\n\n" +
+    "Fixture datasets: **\{matrix.length()}**; ingress and egress JSON/Protobuf combinations compared; differential boundary cases: **\{differential.length()}**.\n\n" +
+    "Raw results, exact source revision and synthetic helper logs are in the external-interop artifact. Go's acceptance of zero IDs/duplicate keys is recorded as an explicit profile difference.\n"
+  @fs.write_file(folder+"/README.md",report)
+  if @env.get_env_var("GITHUB_STEP_SUMMARY") is Some(path) { @fs.write_file(path,report,append=true,create_mode=OpenOrCreate) }
+  println("Verified official Collector archive and passed expanded/differential interop matrix")
+}
