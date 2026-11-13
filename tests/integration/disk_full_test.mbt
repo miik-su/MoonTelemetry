@@ -1,5 +1,5 @@
 ///|
-#cfg(platform="linux")
+#cfg(all(target="native", not(platform="windows")))
 async test "actual ENOSPC write failure is counted without leaking budget" {
   // Linux /dev/full rejects writes with ENOSPC without filling a filesystem.
   // The low-level destination is exercised directly; config preflight rejects

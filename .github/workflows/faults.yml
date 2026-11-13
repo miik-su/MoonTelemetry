@@ -13,6 +13,7 @@ jobs:
           version: 0.10.20+65efd5b93
           core-version: 0.10.20+65efd5b93
       - run: moon update
+      - run: moon test tests/integration/disk_full_test.mbt --target native --verbose
       - run: moon build cmd/moontelemetry --target native --release
       - run: moon run tools/fault_checks.mbtx --target native
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
