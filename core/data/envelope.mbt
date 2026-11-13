@@ -165,6 +165,12 @@ pub fn Envelope::encode(self : Envelope, json~ : Bool) -> Bytes raise {
   if json {
     return @utf8.encode(self.to_json().stringify())
   }
+  // The pinned generated Metric Sized implementation measures signed zigzag
+  // fields as plain int32. Reuse the canonical field adapter for metric wire
+  // output so nested lengths remain correct for negative offsets/scales.
+  if self is Metrics(_) {
+    return json_to_wire(self.to_json(), "Metrics", 0)
+  }
   let buffer = @buffer.Buffer()
   match self {
     Future(_, _, _) => ()
