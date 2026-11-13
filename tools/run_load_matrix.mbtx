@@ -1,0 +1,59 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+fn count(value : Json) -> Int64 {
+  guard value is String(text) else { abort("missing decimal count") }
+  let mut result = 0L
+  for c in text { guard c>='0' && c<='9' else { abort("invalid count") }; result = result*10L+(c.to_int()-48).to_int64() }
+  result
+}
+
+///|
+fn ledger(queue : Json) -> Unit raise {
+  guard queue is Object(q) else { abort("missing queue ledger") }
+  assert_eq(count(q["accepted"]),count(q["delivered"])+count(q["dropped"])+count(q["shutdownLost"]))
+  assert_eq(q.get("retainedBytes"),Some(Json::number(0)))
+}
+
+///|
+async fn main {
+  let base = "_build/matrix-tests/native/release/build/benchmarks/collector/collector"
+  let executable = if @fs.exists(base+".exe") { base+".exe" } else { base }
+  guard @fs.exists(executable) else { abort("build benchmarks/collector with --release --target-dir _build/matrix-tests first") }
+  let seconds = if @env.get_env_var("MOONTELEMETRY_LOAD_SMOKE") == Some("true") { "5" } else { "60" }
+  let folder = "_build/load-matrix"
+  @fs.mkdir(folder,recursive=true,allow_exist=true)
+  let results = []
+  for (scenario,clients) in [("small","8"),("small","64"),("large","4"),("slow","8")] {
+    let path = folder+"/"+scenario+"-"+clients+".raw.json"
+    let (code,stdout,stderr) = @async.with_timeout(120000,async fn() {
+      @process.collect_output(executable,["--seconds",seconds,"--clients",clients,"--scenario",scenario],no_console_window=true,extra_env={"MOONTELEMETRY_BENCHMARK_RESULT_PATH":path,"MOONTELEMETRY_BENCHMARK_PROGRESS_PATH":folder+"/"+scenario+"-"+clients+".progress.ndjson"})
+    })
+    @fs.write_file(folder+"/"+scenario+"-"+clients+".stdout.txt",stdout.text())
+    @fs.write_file(folder+"/"+scenario+"-"+clients+".stderr.txt",stderr.text())
+    assert_eq(code,0,msg="load scenario failed: "+scenario)
+    guard @json.parse(@fs.read_file(path).text()) is Object(result) && result.get("collector") is Some(Object(health)) && health.get("pipelines") is Some(Array(pipelines)) else { abort("missing load result") }
+    assert_eq(result.get("latencySequenceVerified"),Some(Json::boolean(true)))
+    assert_eq(health.get("status"),Some(Json::string("closed")))
+    assert_eq(count(health["logicalMemoryUsed"]),0L)
+    assert_eq(count(health["requestMemoryUsed"]),0L)
+    for pipeline in pipelines {
+      guard pipeline is Object(p) && p.get("outputs") is Some(Array(outputs)) else { abort("missing pipeline") }
+      ledger(p["input"])
+      for output in outputs { ledger(output) }
+    }
+    if scenario=="slow" { assert_false(result.get("slowRecoveryObservedMs") is Some(Null)) }
+    results.push(Json::object(result))
+    println("Verified load scenario \{scenario}/\{clients}, including queue conservation and complete latency window")
+  }
+  let report : Json = { "schemaVersion":1,"kind":"current_revision_load_matrix","sourceRevision":Json::string(@env.get_env_var("MOONTELEMETRY_BENCHMARK_REVISION").unwrap_or(@env.get_env_var("GITHUB_SHA").unwrap_or("unrecorded"))),"runs":Json::array(results),"limits":"synthetic single-host workloads; driver and Collector share a process; host may run other development tasks; slow output intentionally rejects/drops copies under best_effort" }
+  @fs.write_file(folder+"/result.json",report.stringify()+"\n")
+}

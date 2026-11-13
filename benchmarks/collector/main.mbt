@@ -88,19 +88,26 @@ async fn main {
     let slow_task = group.spawn(async fn() {
       if opts.scenario == "slow" {
         slow.run_forever(async fn(_, reader, conn) {
-          let _ = reader.read_all()
-          if @async.now() - start[0] < seconds.to_int64() * 500L {
-            @async.sleep(2000)
-          }
-          conn.send_response(
-            200,
-            "OK",
-            extra_headers=Map::from_array([
-              (@http.CaseInsensitiveString("Content-Type"), "application/json"),
-            ]),
-          )
-          conn.write(b"{}")
-          conn.end_response()
+          try {
+            let _ = reader.read_all()
+            if @async.now() - start[0] < seconds.to_int64() * 500L {
+              @async.sleep(2000)
+            }
+            conn.send_response(
+              200,
+              "OK",
+              extra_headers=Map::from_array([
+                (
+                  @http.CaseInsensitiveString("Content-Type"),
+                  "application/json",
+                ),
+              ]),
+            )
+            conn.write(b"{}")
+            conn.end_response()
+          } catch {
+            _ => ()
+          } // Clients deliberately time out during the slow phase.
         })
       }
     })
