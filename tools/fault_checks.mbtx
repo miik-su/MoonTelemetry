@@ -77,7 +77,9 @@ async fn main {
       child.cancel()
       let code = child.wait()
       if graceful {
-        assert_eq(code,0)
+        // async restores the terminating Unix signal after cancellation cleanup.
+        // A signal exit alone proves nothing: the pending record must also flush.
+        assert_eq(code,-(if name=="sigint" { @signal.SIGINT } else { @signal.SIGTERM }).to_int())
         assert_true(@fs.read_file(file).text().contains("synthetic-"+name))
       } else { assert_false(@fs.exists(file)) }
       results.push(({ "case":Json::string(name),"exitCode":Json::number(code.to_double()),"gracefulFlushVerified":Json::boolean(graceful),"acknowledgedBeforeTermination":Json::number(if name=="restart" { 0.0 } else { 1.0 }),"volatileRecordRecovered":Json::boolean(graceful) } : Json))
