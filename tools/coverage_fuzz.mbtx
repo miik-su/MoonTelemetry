@@ -22,8 +22,10 @@ fn json(case : Case) -> Json {
 
 ///|
 async fn main {
-  let windows = @env.get_env_var("RUNNER_OS") == Some("Windows") || @env.get_env_var("OS") == Some("Windows_NT")
-  let executable = "_build/native/debug/build/tests/fuzzcase/fuzzcase" + (if windows { ".exe" } else { "" })
+  let base_executable = "_build/native/debug/build/tests/fuzzcase/fuzzcase"
+  // Moon's native artifact uses .exe on current Linux builds as well.
+  let executable = if @fs.exists(base_executable+".exe") { base_executable+".exe" } else { base_executable }
+  guard @fs.exists(executable) else { abort("instrumented worker is missing; run the documented build step first") }
   let rounds = if @env.get_env_var("MOONTELEMETRY_FUZZ_SMOKE") == Some("true") { 64 } else { 1024 }
   @fs.mkdir("_build/fuzz/corpus",recursive=true,allow_exist=true)
   if @fs.exists("_build/fuzz/result.json") { @fs.remove("_build/fuzz/result.json") }
