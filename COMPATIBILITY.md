@@ -18,7 +18,13 @@ Generated models are reused from `moonbit-community/opentelemetry` 0.1.8.
 
 Symbolic JSON enum names are rejected. The pinned SDK can emit these names, so
 the SDK demo uses protobuf; numeric-enum JSON fixtures exercise JSON ingestion.
-Unknown protobuf fields are skipped and are not preserved by transformations.
+Unknown protobuf fields are skipped by the generated models. Ordinary relay
+without any processors also does **not** guarantee their preservation. This is
+not a transparent raw-protobuf proxy. Root and nested unknown-field injection
+are covered in core/data/unknown_fields_wbtest.mbt; known fields are preserved
+while the injected unknown fields disappear on normal decode/re-encode.
+Some fallback paths may retain wire bytes, but this is not a preservation
+contract. Transforms and JSON conversion reconstruct only recognized fields.
 The future-enum fallback preserves enum numbers, not arbitrary future schemas.
 Protobuf oneofs use the last member on the wire; JSON with multiple members of
 the same oneof is rejected.
@@ -45,15 +51,15 @@ forwarded them back to a second MoonTelemetry with fixture-equivalent contents;
 see [validation](docs/VALIDATION.md). This covers the committed fixtures and
 does not establish full OTLP conformance certification.
 
-Not implemented: gRPC, receiver TLS termination, YAML, profiles, persistent
-queues and durable delivery guarantees. Metric validation is structural: it does
+Metric validation is structural: it does
 not enforce every histogram bucket/count relationship, timestamp ordering,
 monotonicity or cross-request time-series business rule. Structurally accepted
 data is forwarded without silently repairing these semantics. A focused test
 documents this boundary in core/data/semantic_boundary_test.mbt.
 
-Other unimplemented integrations: gRPC, receiver TLS termination, YAML, profiles,
-queues, Prometheus ingestion, Kafka, tail sampling, remote configuration or
+Not implemented: gRPC, receiver TLS termination, YAML configuration, profiles,
+persistent/durable queues, durable delivery guarantees, Prometheus ingestion,
+Kafka, tail sampling, remote configuration or
 cluster coordination. Bearer authentication and source-IP restrictions are
 available; use trusted TLS termination for remote deployment. HTTPS export
 uses the async library's trust roots.
