@@ -177,6 +177,26 @@ fn json_to_wire(j : Json, kind : String, depth : Int32) -> Bytes raise {
 }
 
 ///|
+fn float_json(value : Json) -> Double raise {
+  match value {
+    String("NaN" | "Infinity" | "-Infinity") => @json.from_json(value)
+    String(s) => {
+      guard !s.is_empty() && s.trim().length() == s.length() else {
+        raise Invalid("invalid quoted floating point value")
+      }
+      let parsed = @json.parse(s)
+      guard parsed is Number(_) else {
+        raise Invalid("expected quoted floating point number")
+      }
+      // The standard conversion rejects numeric overflow to infinity. Only
+      // the three explicit special strings above may represent nonfinite values.
+      @json.from_json(parsed)
+    }
+    _ => @json.from_json(value)
+  }
+}
+
+///|
 fn write_json_field(
   b : @buffer.Buffer,
   v : Json,
@@ -233,7 +253,7 @@ fn write_json_field(
       @protobuf.write_fixed64(b, x)
     }
     "double" => {
-      let x : Double = @json.from_json(v)
+      let x = float_json(v)
       @protobuf.write_double(b, x)
     }
     "bytes" => {
@@ -255,7 +275,7 @@ fn write_json_field(
       let packed = @buffer.Buffer()
       for v in a {
         if kind == "packedDouble" {
-          let x : Double = @json.from_json(v)
+          let x = float_json(v)
           @protobuf.write_double(packed, x)
         } else {
           let x : UInt64 = @json.from_json(integer_json(v))
