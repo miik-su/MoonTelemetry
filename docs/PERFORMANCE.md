@@ -3,6 +3,10 @@
 This page retains historical measurements. Current dated matrix evidence and
 the older one-hour run's sampling limitation are in
 [2026-11-13 results](results/2026-11-13/README.md).
+That page includes a corrected one-hour/32-client run: 7,958,982 accepted and
+delivered, 7,883 HTTP 503, zero transport errors and verified final budgets.
+Its sampled RSS and queue trend are generated from retained progress records;
+read its exact baseline revision and shared-host limitations before comparing.
 
 Measured 2026-11-08 on Windows x64 / MSVC, Native release build,
 moon 0.1.20261023. Reproduce with:

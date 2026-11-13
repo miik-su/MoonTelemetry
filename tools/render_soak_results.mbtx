@@ -1,0 +1,91 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+fn object(value : Json) -> Map[String,Json] {
+  guard value is Object(fields) else { abort("expected soak result object") }
+  fields
+}
+
+///|
+fn number(value : Json) -> Double {
+  match value {
+    Number(n,..) => n
+    String(s) => {
+      let mut n=0.0
+      for c in s { guard c>='0' && c<='9' else { abort("expected decimal result") }; n=n*10.0+(c.to_int()-48).to_double() }
+      n
+    }
+    _ => abort("expected numeric result")
+  }
+}
+
+///|
+fn text(x : Int,y : Int,value : String,size~ : Int=15,color~ : String="#334155") -> String {
+  "<text x='\{x}' y='\{y}' font-size='\{size}' fill='\{color}'>\{value}</text>"
+}
+
+///|
+async fn main {
+  let folder="docs/results/2026-11-13/"
+  let raw=object(@json.parse(@fs.read_file(folder+"soak-3600-corrected.raw.json").text()))
+  let summary=object(@json.parse(@fs.read_file(folder+"soak-3600-summary.json").text()))
+  assert_eq(summary.get("sourceRevision"),raw.get("sourceRevision"))
+  assert_eq(raw.get("latencySequenceVerified"),Some(Json::boolean(true)))
+  let rss_axis=((number(raw["peakHarnessRssBytes"])/1048576.0).to_int()/4+1)*4
+  let mut rss_points=""
+  let mut input_points=""
+  let mut output_points=""
+  let mut samples=0
+  for line in @fs.read_file(folder+"soak-3600-corrected.progress.ndjson").text().split("\n") {
+    if line.trim().is_empty() { continue }
+    let sample=object(@json.parse(line.to_owned()))
+    let x=80.0+number(sample["elapsedMs"])/3600000.0*950.0
+    let rss=number(sample["rssBytes"])/1048576.0
+    guard object(sample["collector"]).get("pipelines") is Some(Array(pipes)) && object(pipes[0]).get("outputs") is Some(Array(outputs)) else { abort("missing queue samples") }
+    let input=number(object(object(pipes[0])["input"])["queuedBatches"])
+    let output=number(object(outputs[0])["queuedBatches"])
+    assert_true(input>=0 && input<=64 && output>=0 && output<=64)
+    assert_true(rss<=rss_axis.to_double())
+    rss_points+="\{x},\{315.0-rss/rss_axis.to_double()*165.0} "
+    input_points+="\{x},\{550.0-input/64.0*145.0} "
+    output_points+="\{x},\{550.0-output/64.0*145.0} "
+    samples+=1
+  }
+  assert_eq(samples,number(summary["progressObservations"]).to_int())
+  let mut svg="<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='750' viewBox='0 0 1080 750' role='img' aria-labelledby='title desc'><title id='title'>MoonTelemetry corrected one-hour soak observations</title><desc id='desc'>Sampled whole-process RSS and input/file queue occupancy across sixty minutes, from retained synthetic workload evidence. Sampled observations do not prove absence of memory leaks or guarantee production capacity.</desc><rect width='1080' height='750' rx='16' fill='#f8fafc'/><g font-family='Arial, Helvetica, sans-serif'>"
+  svg+=text(32,43,"MoonTelemetry | corrected one-hour soak",size=27,color="#0f172a")
+  svg+=text(32,74,"2026-11-13 | baseline 89ed4eb | 32 clients | Windows Native release",size=15)
+  svg+=text(32,105,"Whole-process RSS (MiB): includes the load generator; sampled observations",size=17)
+  for i in 0..=4 {
+    let y=315-i*165/4
+    svg+="<path d='M80 \{y}H1030' stroke='#e2e8f0'/>"
+    svg+=text(35,y+5,(rss_axis*i/4).to_string(),size=13)
+  }
+  svg+="<polyline points='\{rss_points}' stroke='#0d9488' stroke-width='2' fill='none'/>"
+  svg+=text(32,378,"Queued batches: input (blue) and file target (orange); capacity 64 per queue",size=17)
+  for i in 0..=4 {
+    let y=550-i*145/4
+    svg+="<path d='M80 \{y}H1030' stroke='#e2e8f0'/>"
+    svg+=text(35,y+5,(16*i).to_string(),size=13)
+  }
+  svg+="<polyline points='\{input_points}' stroke='#2563eb' stroke-width='1.5' fill='none'/><polyline points='\{output_points}' stroke='#d97706' stroke-width='1.5' fill='none'/>"
+  for minutes in [0,15,30,45,60] {
+    let x=80+minutes*950/60
+    svg+=text(x-8,340,minutes.to_string(),size=13)
+    svg+=text(x-8,575,minutes.to_string(),size=13)
+  }
+  svg+=text(930,600,"Time (minutes)",size=13)
+  svg+=text(32,635,"HTTP 200: "+number(raw["accepted"]).to_int().to_string()+" | rejected: "+number(raw["rejected"]).to_int().to_string()+" | transport errors: "+number(raw["transportErrors"]).to_int().to_string(),size=16)
+  svg+=text(32,665,"All server-admitted records delivered; zero final logical/request budget and shutdown loss.",size=15)
+  svg+=text(32,697,"Shared host with concurrent development. Source predates later float parsing/reporting changes.",size=13)
+  svg+=text(32,726,"Reproduce from retained raw JSON + progress NDJSON after running check_soak_results.mbtx.",size=13)
+  svg+="</g></svg>\n"
+  @fs.write_file(folder+"soak-3600.svg",svg)
+  println("Regenerated one-hour sampled RSS and queue-occupancy evidence")
+}

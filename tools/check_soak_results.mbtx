@@ -1,0 +1,100 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+fn object(value : Json) -> Map[String,Json] {
+  guard value is Object(fields) else { abort("expected soak result object") }
+  fields
+}
+
+///|
+fn count(value : Json) -> Int64 {
+  match value {
+    Number(n,..) if n>=0 && n<=9007199254740991.0 && n.to_int64().to_double()==n => n.to_int64()
+    String(s) => {
+      guard !s.is_empty() else { abort("empty soak count") }
+      let mut n=0L
+      for c in s {
+        guard c>='0' && c<='9' else { abort("invalid soak count") }
+        let digit=(c.to_int()-48).to_int64()
+        guard n<=(9223372036854775807L-digit)/10L else { abort("soak count overflow") }
+        n=n*10L+digit
+      }
+      n
+    }
+    _ => abort("invalid soak count")
+  }
+}
+
+///|
+fn drained(queue : Json) -> Unit raise {
+  let q=object(queue)
+  assert_eq(count(q["accepted"]),count(q["delivered"])+count(q["dropped"])+count(q["shutdownLost"]))
+  assert_eq(count(q["overflowDropped"]),0L)
+  assert_eq(count(q["shutdownLost"]),0L)
+  assert_eq(count(q["dropped"]),0L)
+  assert_eq(count(q["queuedBatches"]),0L)
+  assert_eq(count(q["retainedBytes"]),0L)
+}
+
+///|
+async fn main {
+  let folder="docs/results/2026-11-13/"
+  let raw_path=folder+"soak-3600-corrected.raw.json"
+  let progress_path=folder+"soak-3600-corrected.progress.ndjson"
+  let raw=object(@json.parse(@fs.read_file(raw_path).text()))
+  assert_eq(count(raw["seconds"]),3600L)
+  assert_eq(count(raw["concurrency"]),32L)
+  assert_eq(raw.get("sourceRevision"),Some(Json::string("89ed4eb142ddd73bd57e6cf357fa52a8e4407dd2")))
+  assert_eq(raw.get("latencySequenceVerified"),Some(Json::boolean(true)))
+  assert_eq(count(raw["latencySampleCount"]),10000L)
+  let statuses=object(raw["httpStatusCounts"])
+  assert_eq(count(statuses["200"]),count(raw["accepted"]))
+  let mut http_responses=0L
+  for _,value in statuses { http_responses+=count(value) }
+  assert_eq(http_responses,count(raw["accepted"])+count(raw["rejected"]))
+  assert_true(count(raw["p50Ms"])<=count(raw["p95Ms"]) && count(raw["p95Ms"])<=count(raw["p99Ms"]))
+  let health=object(raw["collector"])
+  assert_eq(health.get("status"),Some(Json::string("closed")))
+  assert_eq(count(health["logicalMemoryUsed"]),0L)
+  assert_eq(count(health["requestMemoryUsed"]),0L)
+  guard health.get("pipelines") is Some(Array(pipes)) && pipes.length()==1 else { abort("expected single soak pipeline") }
+  let pipeline=object(pipes[0])
+  drained(pipeline["input"])
+  let admitted=count(object(pipeline["input"])["accepted"])
+  // A timed-out request may have been admitted before the client lost its
+  // response. Keep transport uncertainty separate from confirmed HTTP 200s.
+  assert_true(admitted>=count(raw["accepted"]) && admitted<=count(raw["accepted"])+count(raw["transportErrors"]))
+  guard pipeline.get("outputs") is Some(Array(outputs)) && outputs.length()==1 else { abort("expected single file destination") }
+  drained(outputs[0])
+  assert_eq(count(object(outputs[0])["delivered"]),admitted)
+  let mut observations=0
+  let mut first_rss=0L
+  let mut last_rss=0L
+  let mut peak_rss=0L
+  let mut last_elapsed=0L
+  let mut max_gap=0L
+  for line in @fs.read_file(progress_path).text().split("\n") {
+    if line.trim().is_empty() { continue }
+    let sample=object(@json.parse(line.to_owned()))
+    let elapsed=count(sample["elapsedMs"])
+    assert_true(elapsed>=last_elapsed)
+    max_gap=max_gap.max(elapsed-last_elapsed)
+    last_elapsed=elapsed
+    let rss=count(sample["rssBytes"])
+    if observations==0 { first_rss=rss }
+    last_rss=rss
+    peak_rss=peak_rss.max(rss)
+    observations+=1
+  }
+  assert_true(observations>0 && last_elapsed>=3500000L)
+  assert_true(count(raw["peakHarnessRssBytes"])>=peak_rss)
+  let summary : Json = {"schemaVersion":1,"kind":"verified_one_hour_soak","sourceRevision":raw["sourceRevision"],"platform":"Windows x64 / MSVC Native","toolchain":"moon 0.1.20261104 / moonc 0.10.20+65efd5b93","rawResult":Json::string(raw_path),"progressResult":Json::string(progress_path),"command":"moon run benchmarks/collector --release --target native -- --seconds 3600 --clients 32","checks":{"uniqueFinalLatencyWindow":true,"closedWithZeroBudgets":true,"queueConservation":true,"allServerAdmittedRecordsDelivered":true},"httpAccepted":raw["accepted"],"serverAdmittedRecords":Json::string(admitted.to_string()),"rejected":raw["rejected"],"transportErrors":raw["transportErrors"],"progressObservations":Json::number(observations.to_double()),"firstProgressRssBytes":Json::string(first_rss.to_string()),"lastProgressRssBytes":Json::string(last_rss.to_string()),"maxProgressGapMs":Json::string(max_gap.to_string()),"limits":"single host synthetic logs; load generator and Collector share process; concurrent development affected host load; p50/p95/p99 are final 10000 observations; RSS sampling is not a hard peak or leak proof; source revision is the measured baseline before later float parsing and reporting changes"}
+  @fs.write_file(folder+"soak-3600-summary.json",summary.stringify()+"\n")
+  println("Verified one-hour latency window, delivery conservation and final budget release")
+}

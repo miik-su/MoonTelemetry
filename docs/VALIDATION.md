@@ -97,6 +97,13 @@ run affected by a latency-sampling race from corrected measurements. The old
 run's 11 transport errors are retained. No zero-error claim applies to it.
 RSS includes the load generator; concurrent work on the same host prevents
 interpreting these results as isolated production capacity.
+The corrected 89ed4eb baseline completed 3,600 seconds with 32 clients:
+7,958,982 accepted and delivered, 7,883 HTTP 503 rejections, zero transport
+errors, zero queue/shutdown loss and zero final logical/request budgets. The
+verified final 10,000-sample window reports P50/P95/P99 10/24/29 ms. Sampled
+whole-harness RSS peak/final is 19,124,224 / 14,741,504 bytes. This source predates
+the subsequent float parsing change; its exact revision and shared-host limits
+remain in the [raw record and automatic checks](results/2026-11-13/README.md).
 
 Linux signal/crash/restart checks and the actual ENOSPC regression run in
 [Native lifecycle fault checks](https://github.com/miik-su/MoonTelemetry/actions/workflows/faults.yml).
