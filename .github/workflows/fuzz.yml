@@ -2,9 +2,9 @@ name: Coverage guided mutation regression
 on:
   workflow_dispatch:
   push:
-    paths: ['core/**', 'config/**', 'receiver/**', 'tests/fuzzcase/**', 'tools/coverage_fuzz.mbtx', '.github/workflows/fuzz.yml']
+    paths: ['core/**', 'config/**', 'receiver/**', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
   pull_request:
-    paths: ['core/**', 'config/**', 'receiver/**', 'tests/fuzzcase/**', 'tools/coverage_fuzz.mbtx', '.github/workflows/fuzz.yml']
+    paths: ['core/**', 'config/**', 'receiver/**', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
 permissions:
   contents: read
 jobs:
@@ -19,11 +19,14 @@ jobs:
           core-version: 0.10.20+65efd5b93
       - run: moon update
       - run: moon build tests/fuzzcase --target native --enable-coverage
+      - run: moon run tools/replay_fuzz_corpus.mbtx --target native
       - run: moon run tools/coverage_fuzz.mbtx --target native
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: coverage-guided-corpus
-          path: _build/fuzz/
+          path: |
+            _build/fuzz/
+            _build/fuzz-replay/
           retention-days: 30
           if-no-files-found: warn

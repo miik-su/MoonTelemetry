@@ -102,6 +102,13 @@ flowchart LR
 
 Envelope 的已知消息保留生成模型；遇到未来枚举值时使用带信号、wire bytes
 和规范化 JSON 的兼容分支。它不意味着能够理解任意未来协议字段。
+即使没有转换型处理器，普通已知消息的 Protobuf 解码／重编码也会丢弃未知字段；
+详见 `core/data/unknown_fields_wbtest.mbt` 的根消息和嵌套字段注入测试。
+
+收尾后每个队列的 `accepted = delivered + dropped + shutdownLost`。
+`overflowDropped` 是进入该队列前被拒绝的计数，不含在其 `accepted` 中。
+入口 HTTP 200 也不等于每个输出目标都交付成功：应逐个目标核对溢出、发送失败
+和关闭损失。最新慢下游实测的三项分解见[结果页](results/2026-11-13/README.md)。
 
 | 状态字段 | 类型与含义 |
 | --- | --- |

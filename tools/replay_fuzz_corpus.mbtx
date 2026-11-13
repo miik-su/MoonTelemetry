@@ -1,0 +1,36 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/core/json",
+  "moonbitlang/core/env",
+}
+----
+
+///|
+async fn main {
+  let base = "_build/native/debug/build/tests/fuzzcase/fuzzcase"
+  let executable = if @fs.exists(base+".exe") { base+".exe" } else { base }
+  guard @fs.exists(executable) else { abort("build tests/fuzzcase for Native first") }
+  let folder = "_build/fuzz-replay"
+  @fs.mkdir(folder,recursive=true,allow_exist=true)
+  if @fs.exists(folder+"/result.json") { @fs.remove(folder+"/result.json") }
+  let cases = @fs.readdir("tests/fuzz-corpus",sort=true).filter(name=>name.has_suffix(".json"))
+  guard cases.length()>0 && cases.length()<=256 else { abort("expected bounded committed fuzz corpus") }
+  let outcomes = []
+  for name in cases {
+    let (code,stdout,stderr) = @async.with_timeout(3000,async fn() {
+      @process.collect_output(executable,["tests/fuzz-corpus/"+name],no_console_window=true)
+    })
+    @fs.write_file(folder+"/"+name+".stdout.txt",stdout.text())
+    @fs.write_file(folder+"/"+name+".stderr.txt",stderr.text())
+    assert_eq(code,0,msg="saved corpus worker failed: "+name)
+    let first = stdout.text().split("\n").next().unwrap().to_owned()
+    guard @json.parse(first) is Object(result) && result.get("accepted") is Some(accepted) && (accepted==Json::boolean(true) || accepted==Json::boolean(false)) else { abort("missing replay outcome") }
+    outcomes.push(({"case":Json::string(name),"accepted":accepted} : Json))
+  }
+  let report : Json = {"schemaVersion":1,"kind":"committed_fuzz_corpus_replay","sourceRevision":Json::string(@env.get_env_var("GITHUB_SHA").unwrap_or("local-working-tree")),"platform":Json::string(@env.get_env_var("RUNNER_OS").unwrap_or("local")),"cases":Json::array(outcomes),"passed":Json::number(outcomes.length().to_double()),"failed":0,"limits":"coverage-discovering synthetic mutations, not known crash findings; invalid-input rejection is allowed; successfully decoded telemetry must roundtrip exactly"}
+  @fs.write_file(folder+"/result.json",report.stringify()+"\n")
+  println(report.stringify())
+}

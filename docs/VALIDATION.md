@@ -70,8 +70,9 @@ ASan run or security certification.
 ```sh
 moon build tests/fuzzcase --target native --enable-coverage
 moon run tools/coverage_fuzz.mbtx --target native
+moon run tools/replay_fuzz_corpus.mbtx --target native
 # Replay a retained case after building the worker:
-moon run tests/fuzzcase --target native -- _build/fuzz/current.json
+moon run tests/fuzzcase --target native -- _build/fuzz/active-case.json
 moon run tools/check_dependencies.mbtx --target native
 ```
 

@@ -38,6 +38,15 @@ async fn main {
   let compressed = @io.MemoryReader(async fn(writer) { let encoder = @gzip.Encoder(writer); encoder.write("synthetic gzip seed"); encoder.end() })
   defer compressed.close()
   corpus.push(Case::{mode:"gzip",signal:"logs",body:compressed.read_all().binary()})
+  // Keep discoveries useful across clean CI runs, not only in ephemeral artifacts.
+  let retained = @fs.readdir("tests/fuzz-corpus",sort=true).filter(name=>name.has_suffix(".json"))
+  guard retained.length()<=128 else { abort("committed mutation seed count exceeds bound") }
+  for name in retained {
+    guard @json.parse(@fs.read_file("tests/fuzz-corpus/"+name).text()) is Object(fields) && fields.get("mode") is Some(String(mode)) && fields.get("signal") is Some(String(signal)) && fields.get("bodyBase64") is Some(String(encoded)) else { abort("invalid retained mutation seed") }
+    let body = @protobuf.base64_decode(encoded)
+    guard body.length()<=65536 else { abort("retained mutation seed exceeds input bound") }
+    corpus.push(Case::{mode,signal,body})
+  }
   let hits : Map[String,Bool] = Map([])
   let mut state = 0x71a34c29U
   let mut interesting = 0

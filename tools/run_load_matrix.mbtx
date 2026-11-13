@@ -31,6 +31,8 @@ async fn main {
   let seconds = if @env.get_env_var("MOONTELEMETRY_LOAD_SMOKE") == Some("true") { "5" } else { "60" }
   let folder = "_build/load-matrix"
   @fs.mkdir(folder,recursive=true,allow_exist=true)
+  // A failed rerun must not leave a previous success summary looking current.
+  if @fs.exists(folder+"/result.json") { @fs.remove(folder+"/result.json") }
   let results = []
   for (scenario,clients) in [("small","8"),("small","64"),("large","4"),("slow","8")] {
     let path = folder+"/"+scenario+"-"+clients+".raw.json"
@@ -50,7 +52,7 @@ async fn main {
       ledger(p["input"])
       for output in outputs { ledger(output) }
     }
-    if scenario=="slow" { assert_false(result.get("slowRecoveryObservedMs") is Some(Null)) }
+    if scenario=="slow" { assert_true(result.get("slowRecoveryObservedMs") is Some(String(_))) }
     results.push(Json::object(result))
     println("Verified load scenario \{scenario}/\{clients}, including queue conservation and complete latency window")
   }
