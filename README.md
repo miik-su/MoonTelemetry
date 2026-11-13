@@ -2,7 +2,8 @@
 
 [![Native key checks](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml)
 
-版本 0.1.1，实验阶段。[安全整改记录](docs/SECURITY_REMEDIATION.md)。
+版本 0.1.1，实验阶段。[安全整改记录](docs/SECURITY_REMEDIATION.md)与
+[本轮审查建议落实情况](docs/AUDIT_FOLLOWUP.md)。开发分支新增内容见 [CHANGELOG](CHANGELOG.md)。
 
 MoonBit 原生可观测性 Collector：接收 Logs、Metrics、Traces，按配置处理，
 通过独立有界队列转发到 Debug、JSONL 文件和 OTLP/HTTP 目标。
