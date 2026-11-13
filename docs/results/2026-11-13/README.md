@@ -11,6 +11,9 @@
 | [依赖清单](dependencies-local.cdx.json) | 三个直接／传递模块的版本、来源和许可符合策略 | 本地工作树；SHA-256 仅覆盖 manifest，不证明整个依赖包完整性或没有漏洞 |
 | [Linux 生命周期原始结果](lifecycle-linux.raw.json) | SIGINT、SIGTERM 均完成待发送记录落盘；强杀后重启不恢复易失记录 | 从 [46e6f2f CI 日志](https://github.com/miik-su/MoonTelemetry/actions/runs/43416878418) 原样提取 JSON；每种信号一个待发送记录 |
 | 实际 ENOSPC | `/dev/full` 写入失败被计数，预算归零 | 同一次 Linux CI 明确执行 1 个测试并通过；低层 Destination 测试，不代表整个服务磁盘耗尽恢复 |
+| [浮点边界互操作](float-interop.raw.json) | 保持 24 批模型往返；差分增加至 14 项 | Windows Native，68e863d；quoted finite / NaN / repeated double 接受，数字与字符串溢出均拒绝，与 Go 一致 |
+| [Linux 固定语料重放](corpus-replay-linux.raw.json) | 26/26 通过 | 2254dd9 CI 日志提取；非法输入可拒绝，已接收模型必须编码往返一致 |
+| [Linux 扩展种子模糊测试](coverage-fuzz-linux.raw.json) | 1,024 次变异、941 个命中槽、30 个新覆盖输入、0 崩溃 | 同一次 CI；输入加入固定语料，因此不与初始 Windows 936 槽结果当作覆盖率横向比较 |
 
 扩展 fixture 包含五种指标、负指数直方图偏移、exemplar、精确整数边界、
 AnyValue、资源／scope、Span 父子关系／link／event。

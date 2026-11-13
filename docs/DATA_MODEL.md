@@ -87,6 +87,10 @@ Metric 的数据分支为 Gauge、Sum、Histogram、ExponentialHistogram、Summa
 精确整数数字形式。JSON 中的 trace/span ID 是十六进制，Protobuf 中是字节。
 Span 和 Link 需要有效非零 trace/span ID；根 Span 的 parentSpanId 可以为空。
 
+浮点字段也接受带引号的有限数（如 `"1.5"`、`"1e2"`），输出为数值。
+`"NaN"`、`"Infinity"`、`"-Infinity"` 保留为特殊字符串；普通数字或数字字符串
+溢出到无穷时被拒绝。这些规则同时用于 AnyValue、数据点和重复浮点边界。
+
 ## Collector 内部及健康模型
 
 ```mermaid

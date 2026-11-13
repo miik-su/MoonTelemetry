@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- Grow request-body/decompression reservations incrementally; release them on
+  errors and cancellation. Bound total export time including lock wait/backoff.
+- Separate liveness/readiness, add opt-in overload rejection and a strict privacy
+  example; document volatile admission and structural metric-validation limits.
+- Fix metric nested protobuf lengths for signed zigzag fields. Accept quoted
+  finite doubles while rejecting overflow, preserving explicit nonfinite values.
+- Expand Go Collector fixture roundtrips to five metric branches and complex
+  logs/traces, with 14 differential boundary cases and checksum-pinned helpers.
+- Add CLI/receiver key CI checks, compiler-counter mutation feedback, committed
+  corpus replay, dependency-manifest policy/provenance and Linux lifecycle faults.
+- Publish dated synthetic raw results and generated delivery-loss charts.
+  Correct the benchmark's async sample-ID race; preserve older affected evidence
+  and its transport errors without treating its latency as qualified.
+
 ## 0.1.1 — 2026-11-08
 
 - Shared request/queue/workspace budgets, configurable parsing limits and RSS observation.

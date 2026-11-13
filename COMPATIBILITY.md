@@ -50,6 +50,10 @@ inference and enum representation. It defines no duplicate telemetry structs.
 Metric protobuf writing also uses the adapter to correct upstream sint32
 length calculation for exponential-histogram offsets; focused boundary tests
 and the external fixture matrix cover this workaround.
+Floating-point fields accept finite JSON numbers, quoted finite JSON numbers
+and the exact strings `NaN`, `Infinity`, `-Infinity`, including repeated bounds.
+Numeric overflow is rejected; nonfinite values require explicit special strings.
+See [ProtoJSON representations](https://protobuf.dev/programming-guides/json/#representation-of-each-type).
 `tools/check_protocol_metadata.mbtx` checks 40 descriptors against the pinned
 generated source; review the adapter when upgrading dependencies.
 

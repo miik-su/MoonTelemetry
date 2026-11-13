@@ -27,6 +27,10 @@ These counts describe that run. The subsequent explicit Linux `/dev/full`
 regression has its own lifecycle workflow; it must not be inferred from the
 26-test count. CI additionally checks formatting, generated interfaces/version,
 40 upstream descriptors, dependency policy and a five-second HTTP smoke run.
+The [46e6f2f follow-up](https://github.com/miik-su/MoonTelemetry/actions/runs/43416878682)
+passed 27 integration tests on Linux and 26 on Windows, including actual ENOSPC
+on Linux. Subsequent float-boundary regression adds three protocol tests;
+their results and source are recorded separately below.
 
 ## External implementation and model matrix
 
@@ -48,7 +52,12 @@ both reject truncated protobuf and malformed JSON. Oversized bodies are rejected
 with MoonTelemetry 413 versus Go 400. All-zero IDs and duplicate JSON keys are
 rejected by this project's stricter profile while this Go configuration accepts
 them. Ordinary protobuf relay drops unknown fields; there is no transparent
-raw-forwarding contract. Metric semantics remain structural, without repairing
+raw-forwarding contract. The 68e863d follow-up expands the differential set to
+14 cases: quoted finite doubles, NaN and quoted repeated doubles are accepted;
+numeric and quoted floating-point overflow are rejected by both implementations.
+Three focused float regression tests passed locally. These rules follow the
+[ProtoJSON floating-point representation](https://protobuf.dev/programming-guides/json/#representation-of-each-type).
+Metric semantics remain structural, without repairing
 histogram relationships or cross-request time-series semantics.
 
 ```sh
