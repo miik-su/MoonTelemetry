@@ -62,6 +62,7 @@ flowchart LR
 
 - [遥测数据模型](../DATA_MODEL.md)：三类信号、AnyValue、Envelope、队列与健康状态。
 - [Benchmark 结果 JSON Schema](schemas/benchmark.schema.json)。
+- [四场景矩阵 JSON Schema](schemas/load-matrix.schema.json)，保留每次运行的源码及采样完整性信息。
 - [互操作结果 JSON Schema](schemas/interop.schema.json)。
 - [完整 Logs fixture](../../tests/fixtures/logs.json)、[Metrics fixture](../../tests/fixtures/metrics.json)、[Traces fixture](../../tests/fixtures/traces.json)。
 - [Fixture 来源与许可](../../tests/fixtures/README.md)。

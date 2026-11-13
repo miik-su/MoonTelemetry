@@ -6,6 +6,7 @@
 
 | 证据 | 已观察结果 | 来源与限制 |
 | --- | --- | --- |
+| [关键包测试汇总](tests.json) | Linux 74 / Windows 73 项通过；协议 22，集成 Linux 27 / Windows 26 | 118d469；11 个选定包，实际 CI 日志计数；未运行全量测试 |
 | [扩展互操作原始结果](expanded-interop.raw.json) | 24 批回传，20 Logs / 28 Metric points / 16 Spans，逐批内容相等；9 个差分用例 | Windows Native，a0d631b；官方 Go Collector 0.165.0；覆盖指定 fixture，不能外推全部 OTLP |
 | [覆盖反馈模糊测试](coverage-fuzz-local.raw.json) | 1,024 次变异，936 个命中计数器槽，26 个有新覆盖的输入，0 崩溃 | Windows Native，本地工作树未记录完整提交；不是覆盖率百分比或 ASan 结果；[独立 Linux CI](https://github.com/miik-su/MoonTelemetry/actions/runs/43366262332) 亦通过 |
 | [依赖清单](dependencies-local.cdx.json) | 三个直接／传递模块的版本、来源和许可符合策略 | 本地工作树；SHA-256 仅覆盖 manifest，不证明整个依赖包完整性或没有漏洞 |

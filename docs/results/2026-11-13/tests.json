@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "kind": "selected_package_validation",
+  "sourceRevision": "118d469e051b71edea808385808ff72514ca4f94",
+  "workflowUrl": "https://github.com/miik-su/MoonTelemetry/actions/runs/43419164652",
+  "toolchain": {
+    "moon": "0.1.20261104",
+    "moonc": "0.10.20+65efd5b93",
+    "target": "native"
+  },
+  "platforms": [
+    {
+      "job": "key-checks (ubuntu-latest)",
+      "jobUrl": "https://github.com/miik-su/MoonTelemetry/actions/runs/43419164652/job/131864528879",
+      "conclusion": "success",
+      "packages": [
+        {
+          "package": "core/component",
+          "command": "moon test --target native -p core/component",
+          "total": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        {
+          "package": "pipeline",
+          "command": "moon test --target native -p pipeline",
+          "total": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        {
+          "package": "extensions/memory",
+          "command": "moon test --target native -p extensions/memory",
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        {
+          "package": "core/data",
+          "command": "moon test --target native -p core/data",
+          "total": 22,
+          "passed": 22,
+          "failed": 0
+        },
+        {
+          "package": "processor",
+          "command": "moon test --target native -p processor",
+          "total": 5,
+          "passed": 5,
+          "failed": 0
+        },
+        {
+          "package": "config",
+          "command": "moon test --target native -p config",
+          "total": 8,
+          "passed": 8,
+          "failed": 0
+        },
+        {
+          "package": "exporter",
+          "command": "moon test --target native -p exporter",
+          "total": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        {
+          "package": "service",
+          "command": "moon test --target native -p service",
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        {
+          "package": "cli",
+          "command": "moon test --target native -p cli",
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        {
+          "package": "receiver/otlp",
+          "command": "moon test --target native -p receiver/otlp",
+          "total": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        {
+          "package": "tests/integration",
+          "command": "moon test --target native -p tests/integration",
+          "total": 27,
+          "passed": 27,
+          "failed": 0
+        }
+      ]
+    },
+    {
+      "job": "key-checks (windows-latest)",
+      "jobUrl": "https://github.com/miik-su/MoonTelemetry/actions/runs/43419164652/job/131864529222",
+      "conclusion": "success",
+      "packages": [
+        {
+          "package": "core/component",
+          "command": "moon test --target native -p core/component",
+          "total": 3,
+          "passed": 3,
+          "failed": 0
+        },
+        {
+          "package": "pipeline",
+          "command": "moon test --target native -p pipeline",
+          "total": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        {
+          "package": "extensions/memory",
+          "command": "moon test --target native -p extensions/memory",
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        {
+          "package": "core/data",
+          "command": "moon test --target native -p core/data",
+          "total": 22,
+          "passed": 22,
+          "failed": 0
+        },
+        {
+          "package": "processor",
+          "command": "moon test --target native -p processor",
+          "total": 5,
+          "passed": 5,
+          "failed": 0
+        },
+        {
+          "package": "config",
+          "command": "moon test --target native -p config",
+          "total": 8,
+          "passed": 8,
+          "failed": 0
+        },
+        {
+          "package": "exporter",
+          "command": "moon test --target native -p exporter",
+          "total": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        {
+          "package": "service",
+          "command": "moon test --target native -p service",
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        {
+          "package": "cli",
+          "command": "moon test --target native -p cli",
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        {
+          "package": "receiver/otlp",
+          "command": "moon test --target native -p receiver/otlp",
+          "total": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        {
+          "package": "tests/integration",
+          "command": "moon test --target native -p tests/integration",
+          "total": 26,
+          "passed": 26,
+          "failed": 0
+        }
+      ]
+    }
+  ],
+  "provenance": "Counts extracted from GitHub Actions job log summary lines in the committed workflow package order.",
+  "limits": "Eleven selected packages only; no full-suite run or coverage percentage claim. External interoperability, lifecycle faults, fuzz and load workflows have separate evidence."
+}

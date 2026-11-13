@@ -21,6 +21,7 @@ moonbitlang/async 和 moonbit-community/opentelemetry 的生成模型。
 
 | 验证 | 结果 | 查看 |
 | --- | --- | --- |
+| 当前关键包检查 | Linux 74 / Windows 73 项通过；不运行全量测试 | [实际 CI 计数与源码提交](docs/results/2026-11-13/tests.json) |
 | 2026-11-13 扩展互操作 | 24 批回传、五种指标模型、复杂 Logs/Traces、14 项差分比较 | [最新数据与限制](docs/results/2026-11-13/README.md) |
 | Linux 故障与模糊测试 | 真实信号关闭、强杀／重启、ENOSPC；覆盖反馈变异测试 | [原始结果与 CI](docs/results/2026-11-13/README.md) |
 | 10 分钟、8 客户端 HTTP 负载 | 1,728,309 个请求接收并交付；0 传输错误；4,127 次 503 限流 | [原始 JSON](docs/results/2026-11-08/soak-600.raw.json) |

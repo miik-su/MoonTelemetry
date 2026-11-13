@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MoonTelemetry bounded synthetic load matrix",
+  "type": "object",
+  "required": ["schemaVersion", "kind", "sourceRevision", "runs", "limits"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "current_revision_load_matrix" },
+    "sourceRevision": { "type": "string" },
+    "runs": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "allOf": [
+          { "$ref": "benchmark.schema.json" },
+          { "required": ["scenario", "sourceRevision", "latencySequenceVerified"], "properties": { "latencySequenceVerified": { "const": true } } }
+        ]
+      }
+    },
+    "limits": { "type": "string" }
+  },
+  "additionalProperties": true
+}

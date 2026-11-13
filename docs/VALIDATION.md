@@ -7,30 +7,28 @@ full-suite test command was used. Historical evidence remains separately dated.
 
 ## Focused package checks
 
-[Implementation 4f337e3, both platforms passed](https://github.com/miik-su/MoonTelemetry/actions/runs/43415697342):
+[Implementation 118d469, both platforms passed](https://github.com/miik-su/MoonTelemetry/actions/runs/43419164652):
 
 | Selected package | Passed tests per platform | Focus |
 | --- | ---: | --- |
 | core/component | 3 | Budgets and lifecycle |
 | pipeline | 2 | Reservations, in-flight and fanout accounting |
 | extensions/memory | 1 | Native RSS |
-| core/data | 19 | Exact integers, oneofs, future enums, unknown-field loss, metric sint32 boundaries and structural semantics |
+| core/data | 22 | Exact integers, oneofs, future enums, unknown-field loss, metric sint32/float boundaries and structural semantics |
 | processor | 5 | Processing order and privacy transforms |
 | config | 8 | Endpoint/auth/budget validation, export deadlines and deterministic mutations |
 | exporter | 2 | Response/retry classification |
 | service | 1 | Runtime contracts |
 | cli | 1 | Argument boundaries |
 | receiver/otlp | 2 | Decoding/admission boundaries |
-| tests/integration | 26 | Dynamic request reservations, export deadlines, readiness, privacy, overload policy and existing HTTP/file/plugin cases |
+| tests/integration | 27 Linux / 26 Windows | Dynamic request reservations, export deadlines, readiness, privacy, overload policy, Linux ENOSPC and existing HTTP/file/plugin cases |
 
-These counts describe that run. The subsequent explicit Linux `/dev/full`
-regression has its own lifecycle workflow; it must not be inferred from the
-26-test count. CI additionally checks formatting, generated interfaces/version,
-40 upstream descriptors, dependency policy and a five-second HTTP smoke run.
-The [46e6f2f follow-up](https://github.com/miik-su/MoonTelemetry/actions/runs/43416878682)
-passed 27 integration tests on Linux and 26 on Windows, including actual ENOSPC
-on Linux. Subsequent float-boundary regression adds three protocol tests;
-their results and source are recorded separately below.
+These counts describe that run: 74 selected tests on Linux, 73 on Windows.
+Linux's additional case executes an actual `/dev/full` write failure; it also
+has an explicit single-test step in the lifecycle workflow. CI additionally
+checks formatting, generated interfaces/version, 40 upstream descriptors,
+dependency policy and a five-second HTTP smoke run. [Structured counts and
+job provenance](results/2026-11-13/tests.json) preserve the exact source revision.
 
 ## External implementation and model matrix
 
