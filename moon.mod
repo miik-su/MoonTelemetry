@@ -12,6 +12,10 @@ import {
 
 preferred_target = "native"
 
+supported_targets = "native"
+
+keywords = ["opentelemetry", "collector", "observability"]
+
 license = "Apache-2.0"
 
 repository = "https://github.com/miik-su/MoonTelemetry"

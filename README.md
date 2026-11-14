@@ -42,6 +42,7 @@ RSS 包含负载发生器，延迟取最后一万次观测，历史性能数据�
 `moon 0.1.20261104` / `moonc 0.10.20+65efd5b93`，Windows x64 / MSVC。
 CI 的编译器与标准库固定到相同版本。
 包安装、库调用和版本复现见[发布与使用指南](docs/DISTRIBUTION.md)。
+Gitlink 同步与待核对事项见[交付记录](docs/DELIVERY_CHECKLIST.md)。
 
 ```sh
 moon update
