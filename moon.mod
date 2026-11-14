@@ -14,7 +14,7 @@ preferred_target = "native"
 
 supported_targets = "native"
 
-keywords = ["opentelemetry", "collector", "observability"]
+keywords = [ "opentelemetry", "collector", "observability" ]
 
 license = "Apache-2.0"
 
