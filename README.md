@@ -23,7 +23,7 @@ moonbitlang/async 和 moonbit-community/opentelemetry 的生成模型。
 
 | 验证 | 结果 | 查看 |
 | --- | --- | --- |
-| 当前关键包检查 | Linux 74 / Windows 73 项通过；不运行全量测试 | [实际 CI 计数与源码提交](docs/results/2026-11-13/tests.json) |
+| 2026-11-13 关键包快照（118d469） | Linux 74 / Windows 73 项通过；非全量测试 | [该次 CI 计数与源码提交](docs/results/2026-11-13/tests.json) |
 | 修正采样后的 1 小时、32 客户端 | 7,958,982 次接收并交付，0 传输错误，7,883 次 503 | [原始记录、RSS 和队列趋势](docs/results/2026-11-13/README.md#修正采样后的-1-小时结果) |
 | 2026-11-13 扩展互操作 | 24 批回传、五种指标模型、复杂 Logs/Traces、14 项差分比较 | [最新数据与限制](docs/results/2026-11-13/README.md) |
 | Linux 故障与模糊测试 | 真实信号关闭、强杀／重启、ENOSPC；覆盖反馈变异测试 | [原始结果与 CI](docs/results/2026-11-13/README.md) |
@@ -34,7 +34,9 @@ moonbitlang/async 和 moonbit-community/opentelemetry 的生成模型。
 RSS 包含负载发生器，延迟取最后一万次观测，历史性能数据使用 0.10.17 工具链。
 这些是本机合成负载结果，不代表生产容量。完整来源、下载和复现方法见
 [结果展示页](docs/results/README.md)；模型结构见 [数据模型说明](docs/DATA_MODEL.md)。
-后续 CI 的 Summary 和 Artifacts 会提供各平台最新短测数据。
+表中数字属于各自注明的历史提交，并非当前版本重新运行所得。
+当前默认分支状态以顶部 CI 徽章及对应提交的 Actions 结果为准；后续 CI 的 Summary
+和 Artifacts 提供各平台短测数据。
 
 ## 运行
 
@@ -42,7 +44,8 @@ RSS 包含负载发生器，延迟取最后一万次观测，历史性能数据�
 `moon 0.1.20261104` / `moonc 0.10.20+65efd5b93`，Windows x64 / MSVC。
 CI 的编译器与标准库固定到相同版本。
 包安装、库调用和版本复现见[发布与使用指南](docs/DISTRIBUTION.md)。
-Gitlink 同步与待核对事项见[交付记录](docs/DELIVERY_CHECKLIST.md)。
+八月黑客松报名／验收事项见[核对记录](docs/HACKATHON_READINESS.md)，
+工程交付状态见[交付记录](docs/DELIVERY_CHECKLIST.md)。
 
 ```sh
 moon update

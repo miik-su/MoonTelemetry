@@ -1,5 +1,8 @@
 # GitHub 与 Gitlink 同步
 
+八月黑客松仅要求公开 GitHub 仓库；Gitlink 不是该活动的必备材料。
+以下保留为可选镜像操作说明，不属于八月黑客松待整改项。
+
 GitHub 项目为 https://github.com/miik-su/MoonTelemetry，已核实默认分支为 `main`。
 Gitlink 地址需由拥有者提供或在自己的账号创建；不要根据 GitHub 用户名猜测地址。
 本文是操作指南，不能作为“两边已经同步”的证明。
