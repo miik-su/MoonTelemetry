@@ -10,6 +10,8 @@ MoonBit 原生可观测性 Collector：接收 Logs、Metrics、Traces，按配�
 
 核心、网络服务、CLI、处理器、演示和基准均使用 MoonBit；网络与协议依赖
 moonbitlang/async 和 moonbit-community/opentelemetry 的生成模型。
+与已有 SDK／埋点库的职责差异、独立实现和架构参考范围见
+[生态定位与贡献说明](docs/ECOSYSTEM.md)。
 
 ## 测试数据与模型展示
 

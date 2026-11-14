@@ -10,6 +10,9 @@ and worker; retrying one destination must not block other destinations.
 
 The design borrows the component and service pipeline separation of the Go
 OpenTelemetry Collector: https://github.com/open-telemetry/opentelemetry-collector.
+That project is Apache-2.0; the reference covers architecture, not copied Go
+source. [Ecosystem positioning](docs/ECOSYSTEM.md) distinguishes the Collector
+from related MoonBit instrumentation libraries and describes independent work.
 Protocol reference: https://opentelemetry.io/docs/specs/otlp/.
 
 Acceptance means queued in volatile memory. A crash can lose queued data;
