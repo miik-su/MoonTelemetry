@@ -2,8 +2,8 @@
 
 [![Native key checks](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml)
 
-版本 0.1.1，实验阶段。[安全整改记录](docs/SECURITY_REMEDIATION.md)与
-[本轮审查建议落实情况](docs/AUDIT_FOLLOWUP.md)。开发分支新增内容见 [CHANGELOG](CHANGELOG.md)。
+版本 0.1.2，实验阶段。[安全整改记录](docs/SECURITY_REMEDIATION.md)与
+[本轮审查建议落实情况](docs/AUDIT_FOLLOWUP.md)。版本变更见 [CHANGELOG](CHANGELOG.md)。
 
 MoonBit 原生可观测性 Collector：接收 Logs、Metrics、Traces，按配置处理，
 通过独立有界队列转发到 Debug、JSONL 文件和 OTLP/HTTP 目标。
@@ -41,6 +41,7 @@ RSS 包含负载发生器，延迟取最后一万次观测，历史性能数据�
 需要 MoonBit Native 工具链及 C 编译器。本次验证工具链：
 `moon 0.1.20261104` / `moonc 0.10.20+65efd5b93`，Windows x64 / MSVC。
 CI 的编译器与标准库固定到相同版本。
+包安装、库调用和版本复现见[发布与使用指南](docs/DISTRIBUTION.md)。
 
 ```sh
 moon update

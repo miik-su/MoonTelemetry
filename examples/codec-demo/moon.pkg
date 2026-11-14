@@ -1,0 +1,5 @@
+import {
+  "miik-su/moontelemetry/core/data",
+}
+
+pkgtype(kind: "executable")

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 — 2026-11-14
 
 - Grow request-body/decompression reservations incrementally; release them on
   errors and cancellation. Bound total export time including lock wait/backoff.
@@ -15,6 +15,8 @@
 - Publish dated synthetic raw results and generated delivery-loss charts.
   Correct the benchmark's async sample-ID race; preserve older affected evidence
   and its transport errors without treating its latency as qualified.
+- Document ecosystem differentiation and architecture-reference licensing;
+  add distribution guidance and a runnable protocol-library example.
 
 ## 0.1.1 — 2026-11-08
 
