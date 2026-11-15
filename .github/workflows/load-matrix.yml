@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
         if: runner.os == 'Windows'
-      - uses: hustcer/setup-moonbit@87e2bdf5cf20d3b6f5c5f266a8a513f503bb5b76
+      - uses: hustcer/setup-moonbit@618b32d610fecdbe9069cefcc01b7bcdb03ede29
         with:
           version: 0.10.20+65efd5b93
           core-version: 0.10.20+65efd5b93
