@@ -1,0 +1,14 @@
+{
+  "receivers": { "otlp": { "host": "127.0.0.1", "port": 4318 } },
+  "processors": {
+    "redaction": { "body": true, "mode": "remove", "allowlist": ["service.name", "deployment.environment.name", "discard"] },
+    "filter": { "all": [
+      { "resource_attribute": "deployment.environment.name", "operator": "equals", "value": { "stringValue": "development" } },
+      { "field": "severityNumber", "operator": "lte", "value": 9 },
+      { "attribute": "discard", "operator": "equals", "value": { "boolValue": true } }
+    ] },
+    "batch": { "size": 128, "timeout_ms": 100, "max_bytes": 1048576 }
+  },
+  "exporters": { "file": { "path": "filtered-telemetry.jsonl", "max_bytes": 10485760, "max_files": 3 } },
+  "service": { "pipelines": { "logs": { "receivers": ["otlp"], "processors": ["redaction", "filter", "batch"], "exporters": ["file"] } } }
+}

@@ -26,15 +26,25 @@ async fn main {
   // Moon's native artifact uses .exe on current Linux builds as well.
   let executable = if @fs.exists(base_executable+".exe") { base_executable+".exe" } else { base_executable }
   guard @fs.exists(executable) else { abort("instrumented worker is missing; run the documented build step first") }
-  let rounds = if @env.get_env_var("MOONTELEMETRY_FUZZ_SMOKE") == Some("true") { 64 } else { 1024 }
   @fs.mkdir("_build/fuzz/corpus",recursive=true,allow_exist=true)
   if @fs.exists("_build/fuzz/result.json") { @fs.remove("_build/fuzz/result.json") }
+  let rounds = match @env.get_env_var("MOONTELEMETRY_FUZZ_ITERATIONS") {
+    Some(value) => {
+      guard !value.is_empty() else { abort("empty fuzz iteration count") }
+      let mut n=0
+      for c in value { guard c>='0' && c<='9' && n<=10000 else { abort("invalid fuzz iteration count") }; n=n*10+c.to_int()-48 }
+      guard n>=64 && n<=100000 else { abort("fuzz iterations must be 64..100000") }
+      n
+    }
+    None => if @env.get_env_var("MOONTELEMETRY_FUZZ_SMOKE") == Some("true") { 64 } else { 1024 }
+  }
   let corpus = []
   for signal in ["logs","metrics","traces"] {
     corpus.push(Case::{mode:"json",signal,body:@fs.read_file("tests/fixtures/expanded/"+signal+".json").binary()})
     corpus.push(Case::{mode:"protobuf",signal,body:b"\x0a\x00"})
   }
   corpus.push(Case::{mode:"config",signal:"logs",body:@fs.read_file("examples/collector.json").binary()})
+  corpus.push(Case::{mode:"config",signal:"logs",body:@fs.read_file("examples/filtered-collector.json").binary()})
   let compressed = @io.MemoryReader(async fn(writer) { let encoder = @gzip.Encoder(writer); encoder.write("synthetic gzip seed"); encoder.end() })
   defer compressed.close()
   corpus.push(Case::{mode:"gzip",signal:"logs",body:compressed.read_all().binary()})
@@ -82,7 +92,7 @@ async fn main {
     guard @json.parse(counters) is Object(files) else { abort("invalid runtime coverage feedback") }
     let before = hits.length()
     for name,counts in files {
-      if name.contains("miik-su/moontelemetry/core/data") || name.contains("miik-su/moontelemetry/config") || name.contains("miik-su/moontelemetry/receiver/otlp") {
+      if name.contains("miik-su/moontelemetry/core/data") || name.contains("miik-su/moontelemetry/config") || name.contains("miik-su/moontelemetry/receiver/otlp") || name.contains("miik-su/moontelemetry/processor") {
         if counts is Array(values) { for i,value in values { if value is Number(n,..) && n>0 { hits[name+"#"+i.to_string()] = true } } }
       }
     }

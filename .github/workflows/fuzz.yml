@@ -1,10 +1,15 @@
 name: Coverage guided mutation regression
 on:
   workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'Bounded mutation count (64..100000)'
+        default: '1024'
+        required: true
   push:
-    paths: ['core/**', 'config/**', 'receiver/**', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
+    paths: ['core/**', 'config/**', 'processor/**', 'receiver/**', 'examples/filtered-collector.json', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
   pull_request:
-    paths: ['core/**', 'config/**', 'receiver/**', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
+    paths: ['core/**', 'config/**', 'processor/**', 'receiver/**', 'examples/filtered-collector.json', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
 permissions:
   contents: read
 jobs:
@@ -21,6 +26,8 @@ jobs:
       - run: moon build tests/fuzzcase --target native --enable-coverage
       - run: moon run tools/replay_fuzz_corpus.mbtx --target native
       - run: moon run tools/coverage_fuzz.mbtx --target native
+        env:
+          MOONTELEMETRY_FUZZ_ITERATIONS: ${{ inputs.iterations || '1024' }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

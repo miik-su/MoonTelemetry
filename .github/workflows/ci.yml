@@ -47,6 +47,7 @@ jobs:
       - run: moon test --target native -p receiver/otlp
       - run: moon test --target native -p tests/integration
       - run: moon run cmd/moontelemetry --target native -- validate --config examples/collector.json
+      - run: moon run cmd/moontelemetry --target native -- validate --config examples/filtered-collector.json
       - run: moon run examples/codec-demo --target native
       - name: Measure short HTTP smoke workload
         run: moon run benchmarks/collector --release -- --seconds 5
