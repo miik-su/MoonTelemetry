@@ -31,6 +31,14 @@ fn imports(source : String) -> Array[String] {
 }
 
 ///|
+#cfg(platform="windows")
+fn host_windows() -> Bool { true }
+
+///|
+#cfg(not(platform="windows"))
+fn host_windows() -> Bool { false }
+
+///|
 async fn main {
   guard @json.parse(@fs.read_file("tools/dependency-policy.json").text()) is Object(policy) else { abort("expected dependency policy") }
   let allowed : Map[String,Bool] = Map([])
@@ -41,7 +49,7 @@ async fn main {
   let declared = imports(@fs.read_file("moon.mod").text())
   assert_eq(declared.length(),policy.length())
   for dependency in declared { assert_true(allowed.contains(dependency),msg="unapproved direct dependency: "+dependency) }
-  let windows = @env.get_env_var("RUNNER_OS") == Some("Windows") || @env.get_env_var("OS") == Some("Windows_NT")
+  let windows = host_windows()
   let components = []
   for name,spec in policy {
     guard spec is Object(p) else { abort("expected policy object") }
