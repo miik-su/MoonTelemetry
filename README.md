@@ -2,124 +2,102 @@
 
 [![Native key checks](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml)
 
-版本 0.1.3，维护候选，实验阶段。[安全整改记录](docs/SECURITY_REMEDIATION.md)与
-[本轮审查建议落实情况](docs/AUDIT_FOLLOWUP.md)。版本变更见 [CHANGELOG](CHANGELOG.md)。
+MoonBit Native 可观测性 Collector：独立接收 Logs、Metrics、Traces，按顺序处理，
+通过独立有界队列转发到 Debug、轮转 JSONL 文件和 OTLP/HTTP 目标。
+当前源码为 **0.1.3 维护候选，实验阶段**；`v0.1.2` 已固定为历史源码基线。
+源码版本／标签不代表正式 GitHub Release 或 Mooncakes 已发布；Mooncakes 继续暂缓。
 
-MoonBit 原生可观测性 Collector：接收 Logs、Metrics、Traces，按配置处理，
-通过独立有界队列转发到 Debug、JSONL 文件和 OTLP/HTTP 目标。
+应用使用 SDK 产生遥测，MoonTelemetry 负责独立接收与处理。核心、网络、CLI、
+处理器、测试及维护自动化使用 MoonBit，RSS 观测使用小型原生 C shim。
+协议模型与 async I/O 复用依赖，独立贡献及参考范围见[生态定位](docs/ECOSYSTEM.md)。
 
-核心、网络服务、CLI、处理器、演示和基准均使用 MoonBit；网络与协议依赖
-moonbitlang/async 和 moonbit-community/opentelemetry 的生成模型。
-与已有 SDK／埋点库的职责差异、独立实现和架构参考范围见
-[生态定位与贡献说明](docs/ECOSYSTEM.md)。
+```mermaid
+flowchart LR
+  SDK[应用 SDK] --> R[OTLP HTTP 接收与资源控制]
+  R --> Q[易失输入队列]
+  Q --> P[顺序处理与 Batch]
+  P --> A[目标 A 有界队列]
+  P --> B[目标 B 有界队列]
+  A --> D[共享串行 Destination]
+  B --> E[其他 Destination]
+```
 
-## 测试数据与模型展示
+## 功能与边界
 
-![2026-11-13 负载与目标交付分解](docs/results/2026-11-13/load-matrix.svg)
+| 部分 | 当前行为 |
+| --- | --- |
+| Receiver | `/v1/logs`、`/v1/metrics`、`/v1/traces`；JSON、Protobuf、gzip；鉴权、来源限制和大小／时间／复杂度边界 |
+| 模型 | Logs、Traces；Gauge、Sum、Histogram、ExponentialHistogram、Summary；精确 64 位整数与明确的未知字段规则 |
+| Processor | 大小保护、Resource／记录属性、递归脱敏、Batch；有界 all/any/not、属性存在／等值／前缀、资源属性、日志严重度过滤 |
+| Exporter | Debug、轮转 JSONL、OTLP HTTP JSON／Protobuf；重试、连接复用、总期限及逐目标计数 |
+| 运维／扩展 | live/ready、独立健康鉴权、预算及 RSS、导出耗时；插件 API v1、工厂和有界关闭 |
 
-以下为历史数据图：
+HTTP 200 表示进入易失输入队列。过滤、目标队列溢出、导出失败仍可发生；重试可能重复。
+没有持久化、exactly-once、硬 RSS 上限或完整 OTLP 一致性认证。
+普通解码／重编码可能丢弃未知 Protobuf 字段。指标和链路以结构校验为主。
+gRPC、接收端 TLS、YAML、Profiles、条件路由和标准自身 Metrics 出口当前未实现。
+详情见[兼容矩阵](COMPATIBILITY.md)、[范围](SCOPE.md)和[交付语义](docs/OPERATIONS.md)。
 
-![本机 HTTP 测试数据](docs/results/benchmark.svg)
+## 快速开始
 
-| 验证 | 结果 | 查看 |
-| --- | --- | --- |
-| 2026-11-13 关键包快照（118d469） | Linux 74 / Windows 73 项通过；非全量测试 | [该次 CI 计数与源码提交](docs/results/2026-11-13/tests.json) |
-| 修正采样后的 1 小时、32 客户端 | 7,958,982 次接收并交付，0 传输错误，7,883 次 503 | [原始记录、RSS 和队列趋势](docs/results/2026-11-13/README.md#修正采样后的-1-小时结果) |
-| 2026-11-13 扩展互操作 | 24 批回传、五种指标模型、复杂 Logs/Traces、14 项差分比较 | [最新数据与限制](docs/results/2026-11-13/README.md) |
-| Linux 故障与模糊测试 | 真实信号关闭、强杀／重启、ENOSPC；覆盖反馈变异测试 | [原始结果与 CI](docs/results/2026-11-13/README.md) |
-| 10 分钟、8 客户端 HTTP 负载 | 1,728,309 个请求接收并交付；0 传输错误；4,127 次 503 限流 | [原始 JSON](docs/results/2026-11-08/soak-600.raw.json) |
-| 关键测试历史快照 | 协议 16、配置 7、集成 19 项通过；Windows/Linux CI 通过 | [测试与 CI 证据](docs/results/2026-11-08/tests.json) |
-| 真实 Go Collector 双向互操作 | 两种编码、三种信号，回传内容与原始 fixture 一致 | [原始结果](docs/results/2026-11-10/interop.raw.json) |
-
-RSS 包含负载发生器，延迟取最后一万次观测，历史性能数据使用 0.10.17 工具链。
-这些是本机合成负载结果，不代表生产容量。完整来源、下载和复现方法见
-[结果展示页](docs/results/README.md)；模型结构见 [数据模型说明](docs/DATA_MODEL.md)。
-表中数字属于各自注明的历史提交，并非当前版本重新运行所得。
-当前默认分支状态以顶部 CI 徽章及对应提交的 Actions 结果为准；后续 CI 的 Summary
-和 Artifacts 提供各平台短测数据。
-
-## 运行
-
-需要 MoonBit Native 工具链及 C 编译器。本次验证工具链：
-`moon 0.1.20261104` / `moonc 0.10.20+65efd5b93`，Windows x64 / MSVC。
-CI 的编译器与标准库固定到相同版本。
-包安装、库调用和版本复现见[发布与使用指南](docs/DISTRIBUTION.md)。
-八月黑客松报名／验收事项见[核对记录](docs/HACKATHON_READINESS.md)，
-工程交付状态见[交付记录](docs/DELIVERY_CHECKLIST.md)。
+已验证工具链：`moon 0.1.20261104` / `moonc 0.10.20+65efd5b93`，Native。
+需要 Native C 编译器；Windows 使用 MSVC，Linux 需满足 async 原生／HTTPS 系统依赖。
+先用 `moon version --all` 确认命中的版本；系统旧版可能与 CI 固定工具链不同。
 
 ```sh
 moon update
-moon run cmd/moontelemetry -- validate --config examples/collector.json
-moon run cmd/moontelemetry -- run --config examples/collector.json
+moon run examples/codec-demo --target native
+moon run cmd/moontelemetry --target native -- validate --config examples/collector.json
+moon run cmd/moontelemetry --target native -- run --config examples/collector.json
 ```
 
-另开终端运行真正的 MoonBit SDK 应用：
+codec-demo 无需服务器，验证一个 LogRecord 的编码往返。Collector 默认监听
+`127.0.0.1:4318`；另开终端发送真实 MoonBit SDK 数据：
 
 ```sh
-moon run examples/sdk-demo
+moon run examples/sdk-demo --target native
 ```
 
-默认 Collector 监听 `127.0.0.1:4318`，结果追加到 `telemetry.jsonl`。
-SDK demo 使用 HTTP/Protobuf，默认目标为本机 4318；SDK 自身支持通过
-`OTEL_EXPORTER_OTLP_ENDPOINT` 设置目标。HTTP/JSON 的三信号链路另有 SDK
-golden fixtures 集成验证。查看状态：`GET /health`。
+等待批处理导出后检查当前目录的 `telemetry.jsonl`。在一个干净输出文件中，演示产生
+一个 LogRecord、一个 Metric DataPoint 和一个 Span；重复运行会追加数据。
+SDK 的退出提示不是后端送达证明，必须查看文件／目标统计。用 Ctrl+C 停止 Collector
+并尝试有界排空；异常终止可能丢失尚未交付的数据。
+
+需要自动复查完整流程时运行：
 
 ```sh
-moon run cmd/moontelemetry -- version
-moon run cmd/moontelemetry -- components
-moon run benchmarks --release
+moon run tools/check_quickstart.mbtx --target native
 ```
 
-## 支持范围
+它使用独立 SDK／Collector 进程、临时端口与 `_build/quickstart` 输出，实际核对三类记录。
+这是功能冒烟，不是独占容量或 Windows 控制台信号测试。
 
-| 部分 | 当前实现 |
-| --- | --- |
-| Receiver | POST /v1/logs、/v1/metrics、/v1/traces；JSON、Protobuf、gzip |
-| Processor | payload_size_guard、resource、attributes、filter、redaction、batch |
-| Exporter | debug、轮转 JSONL、OTLP HTTP/JSON 和 HTTP/Protobuf |
-| Pipeline | 按顺序处理、多 receiver、独立目标队列、重试、有界关闭 |
-| 扩展 | MoonBit Processor/Exporter trait + 配置工厂注册 |
-| 配置 | 严格 JSON、默认值、引用校验、重复键校验、环境变量 |
+## 配置与安全
 
-当前是首个可运行版本，不宣称完整 OTLP 一致性认证或生产环境长期稳定性。
-详细协议边界见 [COMPATIBILITY.md](COMPATIBILITY.md)，运行与交付语义见
-[docs/OPERATIONS.md](docs/OPERATIONS.md)，验证证据见 [docs/VALIDATION.md](docs/VALIDATION.md)。
+- [普通示例](examples/collector.json)：保留正文，适合本地合成数据开发。
+- [严格隐私示例](examples/strict-security.json)：设置独立的 ingest／health token，遮盖正文并移除非允许属性。
+- [过滤示例](examples/filtered-collector.json)：只删除明确标记、开发环境中的低严重度日志；[规则说明](docs/FILTERING.md)。
+- [部署模板](docs/DEPLOYMENT.md)：TLS 代理、非特权用户和资源限额；容器／Nginx 运行资格尚未验证。
 
-## 配置
+配置与插件为可信管理输入，Endpoint 校验不是 SSRF 沙箱；远程 HTTP 需可信 TLS 终止。
+逻辑预算与实际 RSS 分开观测；文件保留策略不是磁盘配额。
+安全报告流程与测试边界见 [SECURITY](SECURITY.md) 和[威胁模型](docs/THREAT_MODEL.md)。
 
-完整示例见 [examples/collector.json](examples/collector.json)。组件 ID 可使用
-`otlp/secondary`、`file/archive` 等形式；pipeline ID 可使用 `logs/a`。
-所有组件必须被 pipeline 引用；未引用组件会被拒绝。batch 必须排在处理器列表末尾。
-属性值采用 OTLP AnyValue，例如 `{"stringValue":"development"}`。
-filter 的 `key` + `equals` 删除具有指定记录属性的数据；指标过滤以数据点为单位。
-Filter 也支持有界 all/any/not、属性存在／前缀、资源属性与日志严重度条件，
-具体排除语义、成本限制和示例见[过滤说明](docs/FILTERING.md)。
-`${env:VARIABLE}` 可替换整个字符串值；不展开任意字符串模板。
+## 验证与维护
 
-默认请求体上限 32 MiB（压缩前后分别检查），每个队列 64 个批次、32 MiB
-序列化数据。共享逻辑内存预算默认 1 GiB，请求预算 256 MiB。
-`payload_size_guard.max_bytes` 限制序列化大小；`memory_limiter` 是兼容别名。
-逻辑预算不构成 RSS 上限；健康状态单独报告实际 RSS。
-远程监听默认要求 Bearer token，支持来源 IP 限制，健康接口独立鉴权。
-密钥脱敏、文件轮转和过载策略见运行文档及 [SECURITY.md](SECURITY.md)。
+CI 对选定包、格式、生成接口、模型描述符、发行包和示例进行检查；独立工作流验证
+官方 Go Collector 互操作、覆盖反馈模糊测试与故障行为。**没有运行全量测试。**
+各项结果必须按源提交和日期解读，当前状态以相应提交的 Actions 结果为准。
 
-## 开发和关键验证
+一个保留的历史例子：`89ed4eb` 在 Windows 同进程合成负载下运行一小时／32 客户端，
+7,958,982 次接收并交付，7,883 次 503，0 传输错误。它不代表当前候选重新长测或生产容量。
+[原始结果与限制](docs/results/2026-11-13/README.md)；[当前及历史证据索引](docs/VALIDATION.md)。
 
-```sh
-moon check
-moon test -p core/data
-moon test -p processor
-moon test -p config
-moon test -p tests/integration
-moon fmt
-moon info
-```
+[维护路线](docs/MAINTENANCE.md) · [变更记录](CHANGELOG.md) ·
+[插件契约](docs/PLUGINS.md) · [数据模型](docs/DATA_MODEL.md) ·
+[使用与发布状态](docs/DISTRIBUTION.md) · [贡献规则](CONTRIBUTING.md)
 
-CI 在 Windows/Linux 上执行关键包与集成验证；没有执行全量测试。
-真实 Go Collector 双向互操作及 60 秒、10 分钟本机负载结果见验证记录。
-API 接口由 `moon info` 生成在各包的 `pkg.generated.mbti` 中。
-架构参考 Go OpenTelemetry Collector 的组件与 service pipeline 分离方式；
-详见 [ARCHITECTURE.md](ARCHITECTURE.md)。
-
-Apache-2.0。依赖与例外声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，
-上游 fixtures 来源见 [tests/fixtures/README.md](tests/fixtures/README.md)。
+Apache-2.0，见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。依赖、生成模型、fixtures 和
+架构参考的来源／许可见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。
+软件许可、协议能力与运行数据权利的区别见[契约说明](docs/CONTRACTS.md)。
+本项目为独立实现，不代表 OpenTelemetry 或 CNCF 官方认可。
