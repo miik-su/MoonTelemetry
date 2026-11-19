@@ -3,6 +3,25 @@
 Reference: [OTLP specification](https://opentelemetry.io/docs/specs/otlp/).
 Generated models are reused from `moonbit-community/opentelemetry` 0.1.8.
 
+## Capability states and evidence
+
+| State | Capability | Evidence / boundary |
+| --- | --- | --- |
+| Supported | Three signals, five metrics, HTTP JSON/protobuf | tests/external matrix with Go Collector 0.165.0; codec tests |
+| Supported | Nested AnyValue, exact integers, special floats, modeled trace context | core/data/model_boundary_test.mbt, integer_test.mbt, float_boundary_test.mbt |
+| Supported | Packed/unpacked normalization, modeled future enums | unpacked_wbtest.mbt, enum_test.mbt, wire_compat_test.mbt |
+| Supported | Recognized response encodings, bounded partial responses | receiver_security_test.mbt, response_boundary_test.mbt, exporter_safety_test.mbt |
+| Limited | Unknown fields | Ordinary re-encoding can discard them; unknown_fields_wbtest.mbt |
+| Limited | Metric/trace semantics | Structural checks, not bucket consistency, cross-request series/order or parent-graph verification; semantic_boundary_test.mbt |
+| Limited | General ProtoJSON | Declared numeric-enum OTLP profile, not an arbitrary protobuf JSON converter |
+| Unsupported | gRPC, receiver TLS, YAML, durable queues, profiles | No implementation/conformance promise; trusted proxy may terminate TLS |
+| Non-goal | Instrumentation SDK, backend storage/query/dashboard | Reuse SDKs; Collector handles ingestion/processing/export |
+
+Core data tests above are in core/data; receiver/exporter runtime cases are in
+tests/integration. Supported means focused evidence for that profile, not
+universal interoperability. Current and historical evidence are distinguished
+in docs/VALIDATION.md.
+
 | Area | Supported behavior |
 | --- | --- |
 | Transport | OTLP/HTTP JSON and protobuf on /v1/logs, /v1/metrics, /v1/traces; persistent connections |

@@ -3,6 +3,8 @@
 MoonTelemetry source is Apache-2.0 (LICENSE). It is an independent project, not an
 official OpenTelemetry or CNCF product. Trademark rights are not granted by the
 source-code license.
+Software, protocol, plugin and runtime-data contracts are distinguished in
+[docs/CONTRACTS.md](docs/CONTRACTS.md). Protocol models are not AI weights.
 
 | Component | Pinned version/source | Declared license |
 | --- | --- | --- |

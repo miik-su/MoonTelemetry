@@ -41,3 +41,7 @@ reporter. This policy does not authorize testing other people's deployments.
 Supported protocol boundaries and operational safeguards are documented in
 COMPATIBILITY.md and docs/OPERATIONS.md. Safety tests are regression evidence,
 not an independent penetration test or certification.
+The maintained threat/control/test mapping is in docs/THREAT_MODEL.md;
+deployment templates and unverified environment assumptions are in
+docs/DEPLOYMENT.md. License/protocol/operational guarantees are distinguished
+in docs/CONTRACTS.md. Package checks run without registry publication.
