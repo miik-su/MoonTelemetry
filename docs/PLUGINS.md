@@ -12,7 +12,7 @@ ownership changes must increment the contract and document migration.
 | Validation/construction | Configuration is trusted; validate without network/file side effects; unused components reject before custom factories run |
 | Processor input | Synchronous execution; return independently owned envelopes when modifying them; the same configured instance may be reused by pipelines |
 | Exporter input | One shared destination per configured exporter ID; framework serializes calls, including retries and close |
-| Rejection | Return a record count in 0..input.count(); it is neither a byte count nor a negative error code |
+| Rejection | Return a record count in 0..input.count(); invalid counts reject the whole batch with invalid_rejected_count, rather than reporting false success |
 | Errors | Processor exceptions and exporter errors have safe category/component statistics; payloads and exception strings are not exposed through health |
 | Cancellation | Sends may be cancelled by total deadlines or shutdown; release owned resources with cancellation-safe cleanup |
 | Close | Must be idempotent from the plugin's perspective; framework enters close once after serialized sends, with a bounded deadline |

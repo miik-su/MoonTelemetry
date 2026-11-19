@@ -16,6 +16,11 @@ pub struct Destination {
   mut last_error : String
   mut last_failure_ms : Int64
   mut current_error : String
+  mut send_calls : Int64
+  mut active_sends : Int32
+  mut total_send_ms : Int64
+  mut last_send_ms : Int64
+  mut max_send_ms : Int64
 }
 
 ///|
@@ -44,6 +49,11 @@ pub fn Destination::new(
     last_error: "",
     last_failure_ms: 0L,
     current_error: "",
+    send_calls: 0L,
+    active_sends: 0,
+    total_send_ms: 0L,
+    last_send_ms: 0L,
+    max_send_ms: 0L,
   }
 }
 
@@ -165,6 +175,16 @@ pub async fn Destination::send(
   self : Destination,
   input : @data.Envelope,
 ) -> Int32 {
+  let started = @async.now()
+  self.send_calls += 1L
+  self.active_sends += 1
+  defer {
+    let elapsed = (@async.now() - started).max(0L)
+    self.active_sends -= 1
+    self.last_send_ms = elapsed
+    self.total_send_ms += elapsed
+    self.max_send_ms = self.max_send_ms.max(elapsed)
+  }
   let deadline = @async.now() + self.total_timeout_ms.to_int64()
   @async.with_timeout(self.total_timeout_ms, async fn() {
     self.send_serialized(input, deadline)
@@ -220,8 +240,15 @@ async fn Destination::send_serialized(
     })
     self.send_locked(input, deadline)
   }
-  self.rejected += rejected.max(0).min(input.count()).to_int64()
-  if rejected > 0 {
+  let invalid_count = rejected < 0 || rejected > input.count()
+  let rejected = if invalid_count {
+    self.current_error = "invalid_rejected_count"
+    input.count()
+  } else {
+    rejected
+  }
+  self.rejected += rejected.to_int64()
+  if rejected > 0 || invalid_count {
     self.failures += 1L
     self.last_error = if self.current_error.is_empty() {
       "remote_partial_rejection"
@@ -351,6 +378,11 @@ pub fn Destination::stats(self : Destination) -> Json {
     "rejectedRecords": Json::string(self.rejected.to_string()),
     "lastErrorClass": Json::string(self.last_error),
     "lastFailureUnixMs": Json::string(self.last_failure_ms.to_string()),
+    "sendCalls": Json::string(self.send_calls.to_string()),
+    "activeSends": Json::number(self.active_sends.to_double()),
+    "lastSendDurationMs": Json::string(self.last_send_ms.to_string()),
+    "totalSendDurationMs": Json::string(self.total_send_ms.to_string()),
+    "maxSendDurationMs": Json::string(self.max_send_ms.to_string()),
   }
 }
 

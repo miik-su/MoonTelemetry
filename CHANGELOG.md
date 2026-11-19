@@ -2,6 +2,10 @@
 
 ## 0.1.3 — source maintenance candidate
 
+- Version plugin registration contracts without breaking default v1 callers;
+  reject incompatible registrations before mutating names. Reject invalid
+  plugin rejection counts instead of recording false success. Add shared
+  destination timing/call statistics and logical/request budget headroom.
 - Add bounded exclusion filters with all/any/not, resource attributes,
   existence/prefix predicates and log severity comparisons; preserve legacy
   attribute equality configuration. Conditions reject unknown fields and

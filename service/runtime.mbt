@@ -161,6 +161,16 @@ pub fn Runtime::health(self : Runtime) -> Json {
       },
     ),
     "logicalMemoryUsed": Json::string(self.budget.used().to_string()),
+    "logicalMemoryLimit": Json::string(
+      self.config.memory_budget_bytes.to_string(),
+    ),
+    "logicalMemoryAvailable": Json::string(self.budget.available().to_string()),
+    "requestMemoryLimit": Json::string(
+      self.config.request_memory_budget_bytes.to_string(),
+    ),
+    "requestMemoryAvailable": Json::string(
+      self.requests.available().to_string(),
+    ),
     "deliveryPolicy": Json::string(self.config.delivery_policy),
     "requestMemoryUsed": Json::string(self.requests.used().to_string()),
     "rssBytes": match @memory.rss_bytes() {

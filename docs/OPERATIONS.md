@@ -52,6 +52,12 @@ logical budgets, RSS, receiver requests/rejections/timeouts, pipeline filtering,
 processor failures, queue overflow/shutdown losses and per-destination export
 counts, retry attempts and safe error categories. It excludes request bodies
 and credentials. Counters reset on restart.
+Destinations also report sendCalls, activeSends and last/total/maxSendDurationMs.
+Durations include lock waiting, attempts and backoff, not only network time;
+calls include cancellations/errors, so they need not equal success plus failure
+counts while work is active. These are bounded scalar aggregates, not histograms
+or a separate metrics export endpoint. Budget limit/available fields accompany
+used fields; derive utilization from the same snapshot rather than RSS.
 
 `/health/live` reports HTTP 200 while the listener can answer. `/health/ready`
 returns 200 only for lifecycle status ready, otherwise 503. It does not promise
