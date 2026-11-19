@@ -1,4 +1,52 @@
 ///|
+async test "source rejection preserves recognized OTLP response encoding before parsing body" {
+  let server = @http.Server(@socket.Addr::new(2130706433U, 0))
+  defer server.close()
+  let cfg = @config.parse(
+    "{\"receivers\":{\"otlp\":{\"allowed_ips\":[\"127.0.0.2\"]}},\"exporters\":{\"debug\":{}},\"service\":{\"pipelines\":{\"logs\":{\"receivers\":[\"otlp\"],\"processors\":[],\"exporters\":[\"debug\"]}}}}",
+  )
+  @async.with_task_group(async fn(group) {
+    let task = group.spawn(async fn() {
+      @otlp.serve(server, cfg.receivers["otlp"], _ => {
+        abort("source rejection must precede decode and admission")
+      })
+    })
+    for content_type in ["application/json", "application/x-protobuf"] {
+      let client = @http.Client("http://127.0.0.1:\{server.addr.port()}")
+      defer client.close()
+      let response = client.post(
+        "/v1/logs",
+        b"invalid-body",
+        extra_headers=Map::from_array([
+          (@http.CaseInsensitiveString("Content-Type"), content_type),
+        ]),
+      )
+      assert_eq(response.code, 403)
+      assert_eq(
+        response.headers.get(@http.CaseInsensitiveString("Content-Type")),
+        Some(content_type),
+      )
+      let _ = client.read_all()
+    }
+    let health_client = @http.Client("http://127.0.0.1:\{server.addr.port()}")
+    defer health_client.close()
+    let health_response = health_client.get(
+      "/health",
+      extra_headers=Map::from_array([
+        (@http.CaseInsensitiveString("Content-Type"), "application/x-protobuf"),
+      ]),
+    )
+    assert_eq(health_response.code, 403)
+    assert_eq(
+      health_response.headers.get(@http.CaseInsensitiveString("Content-Type")),
+      Some("application/json"),
+    )
+    let _ = health_client.read_all()
+    task.cancel()
+  })
+}
+
+///|
 async test "health and telemetry bearer policies and method encoding" {
   let server = @http.Server(@socket.Addr::new(2130706433U, 0))
   defer server.close()

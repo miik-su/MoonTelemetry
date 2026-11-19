@@ -199,6 +199,15 @@ async fn handle(
     conn.read_request()
   })
   stats.requests += 1L
+  let error_json = if route(request.path) is Some(_) {
+    json_encoding(
+      request.headers
+      .get(@http.CaseInsensitiveString("Content-Type"))
+      .unwrap_or(""),
+    ).unwrap_or(true)
+  } else {
+    true
+  }
   if !cfg.allowed_ips.is_empty() {
     let peer = conn.client_addr()
     let allowed = cfg.allowed_ips.any(ip => {
@@ -210,7 +219,7 @@ async fn handle(
       address == peer
     })
     if !allowed {
-      failure(conn, 403, "source not allowed", true)
+      failure(conn, 403, "source not allowed", error_json)
       return
     }
   }
