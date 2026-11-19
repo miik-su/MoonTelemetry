@@ -1,0 +1,21 @@
+# Original deployment template, Apache-2.0. No project image is published.
+services:
+  collector:
+    image: ${MOONTELEMETRY_IMAGE:?Set your verified image digest}
+    user: "65532:65532"
+    entrypoint: ["/usr/local/bin/moontelemetry"]
+    command: ["run", "--config", "/etc/moontelemetry/collector.json"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 15s
+    ports: ["127.0.0.1:4318:4318"]
+    environment:
+      MOONTELEMETRY_INGEST_TOKEN: ${MOONTELEMETRY_INGEST_TOKEN:?Set ingest token}
+      MOONTELEMETRY_HEALTH_TOKEN: ${MOONTELEMETRY_HEALTH_TOKEN:?Set separate health token}
+    volumes:
+      - ./collector.json:/etc/moontelemetry/collector.json:ro
+      - ./data:/data

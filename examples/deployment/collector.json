@@ -1,0 +1,22 @@
+{
+  "receivers": { "otlp": {
+    "host": "0.0.0.0", "port": 4318, "max_connections": 16, "max_body_bytes": 1048576,
+    "auth_token": "${env:MOONTELEMETRY_INGEST_TOKEN}",
+    "health_enabled": true, "health_token": "${env:MOONTELEMETRY_HEALTH_TOKEN}"
+  } },
+  "processors": {
+    "redaction": { "mode": "remove", "body": true, "allowlist": ["service.name", "deployment.environment.name", "http.status_code"] },
+    "batch": { "size": 128, "timeout_ms": 100, "max_bytes": 1048576 }
+  },
+  "exporters": { "file": { "path": "/data/telemetry.jsonl", "max_bytes": 10485760, "max_files": 3 } },
+  "service": {
+    "delivery_policy": "reject_on_overload", "memory_budget_bytes": 134217728,
+    "request_memory_budget_bytes": 16777216, "queue_bytes": 4194304,
+    "file_budget_bytes": 31457280, "shutdown_timeout_ms": 5000,
+    "pipelines": {
+      "logs": { "receivers": ["otlp"], "processors": ["redaction", "batch"], "exporters": ["file"] },
+      "metrics": { "receivers": ["otlp"], "processors": ["redaction", "batch"], "exporters": ["file"] },
+      "traces": { "receivers": ["otlp"], "processors": ["redaction", "batch"], "exporters": ["file"] }
+    }
+  }
+}
