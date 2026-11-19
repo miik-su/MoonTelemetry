@@ -45,7 +45,10 @@ async fn main {
   @otel.meter("demo").u64_counter("checkout.attempts").build().add(1UL)
   span.end()
   @async.sleep(0)
-  @sdk.force_flush()
+  // shutdown performs the final collection; force_flush immediately before it
+  // would export the same cumulative metric snapshot twice in the pinned SDK.
   @sdk.shutdown()
-  println("SDK demo flushed logs, metrics and traces")
+  println(
+    "SDK demo shut down logs, metrics and traces; verify Collector output",
+  )
 }

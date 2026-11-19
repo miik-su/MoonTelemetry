@@ -2,6 +2,9 @@
 
 ## 0.1.3 — source maintenance candidate
 
+- Remove the redundant force-flush before SDK shutdown that emitted the same
+  cumulative metric snapshot twice in the demo. Verify one log, metric point
+  and span reaches a separate Collector process and its file output.
 - Version plugin registration contracts without breaking default v1 callers;
   reject incompatible registrations before mutating names. Reject invalid
   plugin rejection counts instead of recording false success. Add shared

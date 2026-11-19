@@ -1,0 +1,113 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/async@0.22.5/http",
+  "moonbitlang/async@0.22.5/socket",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+#cfg(platform="windows")
+fn windows() -> Bool { true }
+
+///|
+#cfg(not(platform="windows"))
+fn windows() -> Bool { false }
+
+///|
+fn object(value : Json) -> Map[String,Json] {
+  guard value is Object(fields) else { abort("quickstart JSON object expected") }
+  fields
+}
+
+///|
+fn records(value : Json, field : String) -> Int {
+  match value {
+    Object(fields) => { let mut n=0; for key,value in fields { n+=if key==field && value is Array(values) { values.length() } else { records(value,field) } }; n }
+    Array(values) => values.fold(init=0,fn(n,v){ n+records(v,field) })
+    _ => 0
+  }
+}
+
+///|
+async fn snapshot(url : String) -> Json {
+  let client=@http.Client(url)
+  defer client.close()
+  assert_eq(client.get("/health/ready").code,200)
+  @json.parse(client.read_all().text())
+}
+
+///|
+async fn main {
+  let moon=match @env.get_env_var("MOON_HOME") { Some(home)=>home+"/bin/"+(if windows(){"moon.exe"}else{"moon"}); None=>"moon" }
+  for target_package in ["cmd/moontelemetry","examples/sdk-demo"] {
+    let code=@process.run(moon,["build",target_package,"--release","--target","native"],no_console_window=true)
+    assert_eq(code,0,msg="quickstart executable build failed")
+  }
+  let cli_base="_build/native/release/build/cmd/moontelemetry/moontelemetry"
+  let sdk_base="_build/native/release/build/examples/sdk-demo/sdk-demo"
+  let cli=if @fs.exists(cli_base+".exe"){cli_base+".exe"}else{cli_base}
+  let sdk=if @fs.exists(sdk_base+".exe"){sdk_base+".exe"}else{sdk_base}
+  let folder="_build/quickstart"
+  @fs.mkdir(folder,recursive=true,allow_exist=true)
+  for path in [folder+"/result.json",folder+"/telemetry.jsonl"] { if @fs.exists(path){@fs.remove(path)} }
+  let reserve=@http.Server(@socket.Addr::new(2130706433U,0))
+  let port=reserve.addr.port()
+  reserve.close()
+  let cfg=object(@json.parse(@fs.read_file("examples/collector.json").text()))
+  object(object(cfg["receivers"])["otlp"])["port"]=Json::number(port.to_double())
+  object(object(cfg["exporters"])["file"])["path"]=Json::string(folder+"/telemetry.jsonl")
+  @fs.write_file(folder+"/collector.json",Json::object(cfg).stringify())
+  let log=@process.redirect_to_file(folder+"/collector.log",shared=true)
+  defer log.close()
+  let counts=[0,0,0]
+  @async.with_task_group(async fn(group){
+    let child=@process.spawn(group,cli,["run","--config",folder+"/collector.json"],stdout=log,stderr=log,cancel_handler=@process.hard_cancel(),no_console_window=true)
+    defer child.cancel()
+    let url="http://127.0.0.1:\{port}"
+    @async.with_timeout(10000,async fn(){ for ;; { if (try { let _=snapshot(url); true } catch {_=>false}) {break}; @async.sleep(20) } })
+    let environment : Map[String,String] = {"OTEL_EXPORTER_OTLP_ENDPOINT":url,"OTEL_EXPORTER_OTLP_PROTOCOL":"http/protobuf","OTEL_EXPORTER_OTLP_HEADERS":"","OTEL_RESOURCE_ATTRIBUTES":"","OTEL_SERVICE_NAME":"moontelemetry-demo","OTEL_TRACES_SAMPLER":"always_on"}
+    for signal in ["TRACES","METRICS","LOGS"] {
+      environment["OTEL_EXPORTER_OTLP_"+signal+"_ENDPOINT"]=url+"/v1/"+signal.to_lower()
+      environment["OTEL_EXPORTER_OTLP_"+signal+"_PROTOCOL"]="http/protobuf"
+      environment["OTEL_EXPORTER_OTLP_"+signal+"_HEADERS"]=""
+    }
+    let (code,stdout,stderr)=@async.with_timeout(15000,async fn(){ @process.collect_output(sdk,[],extra_env=environment,no_console_window=true) })
+    @fs.write_file(folder+"/sdk.stdout.txt",stdout.text())
+    @fs.write_file(folder+"/sdk.stderr.txt",stderr.text())
+    assert_eq(code,0,msg="SDK quickstart failed")
+    @async.with_timeout(10000,async fn(){
+      for ;; {
+        counts.fill(0)
+        if @fs.exists(folder+"/telemetry.jsonl") {
+          let content=@fs.read_file(folder+"/telemetry.jsonl").text()
+          if !content.has_suffix("\n") { @async.sleep(20); continue }
+          for line in content.split("\n") {
+            if line.trim().is_empty(){continue}
+            let batch=@json.parse(line.to_owned())
+            for i,key in ["logRecords","dataPoints","spans"] {counts[i]+=records(batch,key)}
+          }
+        }
+        if counts==[1,1,1]{break}
+        @async.sleep(20)
+      }
+    })
+    let health=snapshot(url)
+    @fs.write_file(folder+"/observed-health.json",health.stringify()+"\n")
+    child.cancel()
+    let _=child.wait()
+  })
+  let (git_code,revision,_)=@process.collect_output("git",["rev-parse","HEAD"],no_console_window=true)
+  assert_eq(git_code,0)
+  let (status_code,status,_)=@process.collect_output("git",["status","--porcelain"],no_console_window=true)
+  assert_eq(status_code,0)
+  let report : Json={"schemaVersion":1,"kind":"separate_process_quickstart","sourceRevision":Json::string(@env.get_env_var("GITHUB_SHA").unwrap_or(revision.text().trim().to_owned())),"workingTreeDirty":Json::boolean(!status.text().trim().is_empty()),"platform":Json::string(if windows(){"Windows"}else{"Linux/Unix"}),"records":{"logs":Json::number(counts[0].to_double()),"metricPoints":Json::number(counts[1].to_double()),"spans":Json::number(counts[2].to_double())},"collectorConfig":"examples/collector.json with isolated ephemeral port and output file","limits":"SDK and Collector are separate processes on the same host; verifies three-signal file delivery, not capacity; helper hard-stops only after observing delivery; graceful signals have separate fault tests"}
+  @fs.write_file(folder+"/result.json",report.stringify()+"\n")
+  @fs.mkdir("_build/ci-results",recursive=true,allow_exist=true)
+  @fs.write_file("_build/ci-results/quickstart.json",report.stringify()+"\n")
+  println("Verified README SDK-to-Collector quickstart in separate processes: one log, metric point and span")
+}
