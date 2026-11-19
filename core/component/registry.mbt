@@ -113,6 +113,8 @@ pub(open) trait Processor {
 
 ///|
 pub(open) trait Exporter {
+  /// Return the rejected record count in 0..input.count(); invalid counts fail
+  /// the whole destination batch. The framework serializes send/close per ID.
   async fn send(Self, @data.Envelope) -> Int32
   async fn close(Self) -> Unit
 }

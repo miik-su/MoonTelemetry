@@ -12,6 +12,8 @@ pub fn builtins() -> Registry
 
 pub fn catalog() -> Array[ComponentDescriptor]
 
+pub fn plugin_api_version() -> Int32
+
 pub fn version() -> String
 
 // Errors
@@ -39,8 +41,8 @@ pub struct Factories {
 pub fn Factories::exporter(Self, String, @json.Json) -> &Exporter raise
 pub fn Factories::new() -> Self
 pub fn Factories::processor(Self, String, @json.Json) -> &Processor raise
-pub fn Factories::register_exporter(Self, String, (@json.Json) -> &Exporter raise) -> Unit raise CollectorError
-pub fn Factories::register_processor(Self, String, (@json.Json) -> &Processor raise) -> Unit raise CollectorError
+pub fn Factories::register_exporter(Self, String, (@json.Json) -> &Exporter raise, api_version? : Int32) -> Unit raise CollectorError
+pub fn Factories::register_processor(Self, String, (@json.Json) -> &Processor raise, api_version? : Int32) -> Unit raise CollectorError
 
 #derive(Eq, @debug.Debug)
 pub(all) enum Kind {
