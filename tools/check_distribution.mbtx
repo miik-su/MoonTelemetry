@@ -1,0 +1,77 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+}
+----
+
+///|
+#cfg(platform="windows")
+fn windows() -> Bool { true }
+
+///|
+#cfg(not(platform="windows"))
+fn windows() -> Bool { false }
+
+///|
+fn field(source : String, name : String) -> String raise {
+  let prefix = name+" = "
+  let lines = source.split("\n").filter(line=>line.trim().has_prefix(prefix)).collect()
+  guard lines.length()==1 else { abort("expected one manifest field: "+name) }
+  let parts=lines[0].trim().to_owned().split(" = ").collect()
+  guard @json.parse(parts[1].to_owned()) is String(value) else { abort("expected manifest string") }
+  value
+}
+
+///|
+async fn main {
+  let manifest=@fs.read_file("moon.mod").text()
+  let name=field(manifest,"name")
+  let version=field(manifest,"version")
+  assert_eq(field(manifest,"license"),"Apache-2.0")
+  assert_eq(field(manifest,"readme"),"README.md")
+  let moon=match @env.get_env_var("MOON_HOME") { Some(home)=>home+"/bin/"+(if windows(){"moon.exe"}else{"moon"}); None=>"moon" }
+  let (code,stdout,stderr) = @process.collect_output(moon,["package","--list"],no_console_window=true)
+  assert_eq(code,0,msg="package generation failed")
+  let output=@utf8.decode_lossy(stdout.binary())+"\n"+@utf8.decode_lossy(stderr.binary())
+  let files : Array[String] = []
+  for line in output.split("\n") {
+    let path=line.trim().to_owned().replace_all(old="\\",new="/")
+    // Only relative archive entries that exist in this module are file rows;
+    // ignore tool progress and the absolute output-archive announcement.
+    if path.is_empty() || path.contains(":") || path.has_prefix("/") { continue }
+    if !@fs.exists(path) { continue }
+    guard !path.split("/").any(part=>["_build","target",".mooncakes",".git"].contains(part.to_owned())) &&
+      !path.split("/").any(part=>part=="credentials.json" || part==".env") && !path.has_suffix(".jsonl") else {
+      abort("unexpected sensitive/generated package entry: "+path)
+    }
+    files.push(path)
+  }
+  for required in ["moon.mod","README.md","LICENSE","NOTICE","THIRD_PARTY_NOTICES.md","extensions/memory/rss.c","tests/fixtures/README.md","tests/fixtures/expanded/README.md","tests/fuzz-corpus/README.md","examples/codec-demo/main.mbt"] {
+    assert_true(files.contains(required),msg="required distribution entry absent: "+required)
+  }
+  assert_true(@fs.read_file("LICENSE").text().contains("Apache License"))
+  assert_true(@fs.read_file("THIRD_PARTY_NOTICES.md").text().contains("LLVM-exception"))
+  let archive="_build/publish/"+name.replace_all(old="/",new="-")+"-"+version+".zip"
+  assert_true(@fs.exists(archive))
+  let (hash_code,hash_output,_)=if windows() { @process.collect_output("certutil",["-hashfile",archive,"SHA256"],no_console_window=true) } else { @process.collect_output("sha256sum",[archive],no_console_window=true) }
+  assert_eq(hash_code,0)
+  let hashes=@utf8.decode_lossy(hash_output.binary()).split("\n").map(line=>line.trim().to_owned().to_lower().split(" ").next().unwrap_or("").to_owned()).filter(s=>s.length()==64 && s.iter().all(c=>(c>='0' && c<='9') || (c>='a' && c<='f'))).collect()
+  guard hashes.length()==1 else { abort("could not read package SHA256") }
+  let (git_code,revision,_)=@process.collect_output("git",["rev-parse","HEAD"],no_console_window=true)
+  assert_eq(git_code,0)
+  let (status_code,status,_)=@process.collect_output("git",["status","--porcelain"],no_console_window=true)
+  assert_eq(status_code,0)
+  let (cli_code,cli,_)=@process.collect_output(moon,["run","cmd/moontelemetry","--target","native","--","version"],no_console_window=true)
+  assert_eq(cli_code,0)
+  assert_eq(cli.text().trim().to_owned(),"MoonTelemetry "+version)
+  let report : Json={"schemaVersion":1,"kind":"distribution_preflight","sourceRevision":Json::string(@env.get_env_var("GITHUB_SHA").unwrap_or(revision.text().trim().to_owned())),"workingTreeDirty":Json::boolean(!status.text().trim().is_empty()),"module":Json::string(name),"version":Json::string(version),"platform":Json::string(if windows(){"Windows"}else{"Linux/Unix"}),"archive":Json::string(archive),"archiveSha256":Json::string(hashes[0]),"archiveEntries":Json::number(files.length().to_double()),"checks":{"requiredNoticesPresent":true,"noKnownCredentialOrCachePaths":true,"cliVersionMatchesManifest":true},"limits":"local package/check inspection only; ZIP hash is for this generated archive, not reproducible-build or vulnerability attestation; no registry publication or login performed"}
+  @fs.mkdir("_build/ci-results",recursive=true,allow_exist=true)
+  @fs.write_file("_build/ci-results/distribution.json",report.stringify()+"\n")
+  @fs.write_file("_build/ci-results/package-files.txt",files.join("\n")+"\n")
+  println("Verified package notices, ignored paths and CLI/module version; no publication performed")
+}

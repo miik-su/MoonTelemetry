@@ -21,6 +21,7 @@ jobs:
       - run: moon version --all
       - run: moon check --target native
       - run: moon run tools/check_dependencies.mbtx --target native
+      - run: moon run tools/check_distribution.mbtx --target native
       - run: moon fmt --check
       - run: moon run tools/check_protocol_metadata.mbtx
       - run: moon run tools/render_results.mbtx
