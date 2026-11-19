@@ -36,6 +36,12 @@ pub fn Batch::new(@data.Signal, size~ : Int32, timeout_ms~ : Int32, max_bytes~ :
 pub fn Batch::push(Self, @data.Envelope, now~ : Int64) -> Array[@data.Envelope] raise
 pub fn Batch::tick(Self, now~ : Int64) -> @data.Envelope? raise
 
+pub struct Filter {
+  // private fields
+}
+pub fn Filter::parse(@json.Json) -> Self raise
+pub fn Filter::process(Self, @data.Envelope) -> @data.Envelope raise
+
 pub(all) enum Transform {
   Redact(Array[String], body~ : Bool)
   Redaction(keys~ : Array[String], allowlist~ : Array[String]?, remove~ : Bool, body~ : Bool)
@@ -43,6 +49,7 @@ pub(all) enum Transform {
   Resource(Array[Action])
   DropAttribute(String, @json.Json)
   DropRecordIfAttributeEquals(String, @json.Json)
+  DropMatching(Filter)
 }
 pub fn Transform::process(Self, @data.Envelope) -> @data.Envelope raise
 pub impl @component.Processor for Transform

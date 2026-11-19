@@ -2,7 +2,7 @@
 
 [![Native key checks](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml/badge.svg)](https://github.com/miik-su/MoonTelemetry/actions/workflows/ci.yml)
 
-版本 0.1.2，实验阶段。[安全整改记录](docs/SECURITY_REMEDIATION.md)与
+版本 0.1.3，维护候选，实验阶段。[安全整改记录](docs/SECURITY_REMEDIATION.md)与
 [本轮审查建议落实情况](docs/AUDIT_FOLLOWUP.md)。版本变更见 [CHANGELOG](CHANGELOG.md)。
 
 MoonBit 原生可观测性 Collector：接收 Logs、Metrics、Traces，按配置处理，
@@ -92,6 +92,8 @@ moon run benchmarks --release
 所有组件必须被 pipeline 引用；未引用组件会被拒绝。batch 必须排在处理器列表末尾。
 属性值采用 OTLP AnyValue，例如 `{"stringValue":"development"}`。
 filter 的 `key` + `equals` 删除具有指定记录属性的数据；指标过滤以数据点为单位。
+Filter 也支持有界 all/any/not、属性存在／前缀、资源属性与日志严重度条件，
+具体排除语义、成本限制和示例见[过滤说明](docs/FILTERING.md)。
 `${env:VARIABLE}` 可替换整个字符串值；不展开任意字符串模板。
 
 默认请求体上限 32 MiB（压缩前后分别检查），每个队列 64 个批次、32 MiB

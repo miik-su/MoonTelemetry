@@ -228,6 +228,9 @@ fn processor_spec(
       )
     }
     "filter" => {
+      if !m.contains("key") && !m.contains("equals") {
+        return Transform(@processor.DropMatching(@processor.Filter::parse(j)))
+      }
       fields(m, ["key", "equals"], p)
       let key = text(m, "key", "", p)
       if key.is_empty() || !m.contains("equals") {

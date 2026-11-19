@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 — source maintenance candidate
+
+- Add bounded exclusion filters with all/any/not, resource attributes,
+  existence/prefix predicates and log severity comparisons; preserve legacy
+  attribute equality configuration. Conditions reject unknown fields and
+  enforce explicit depth/node/string limits before processing telemetry.
+
 ## 0.1.2 — 2026-11-14
 
 - Grow request-body/decompression reservations incrementally; release them on

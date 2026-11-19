@@ -36,7 +36,7 @@ pub fn catalog() -> Array[ComponentDescriptor] {
     {
       name: "filter",
       kind: Processor,
-      description: "Drop records matching an attribute value",
+      description: "Drop records matching bounded attribute, resource or severity conditions",
     },
     {
       name: "redaction",

@@ -19,6 +19,7 @@ pub(all) enum Transform {
   Resource(Array[Action])
   DropAttribute(String, Json)
   DropRecordIfAttributeEquals(String, Json)
+  DropMatching(Filter)
 }
 
 ///|
@@ -132,6 +133,9 @@ pub fn Transform::process(
   self : Transform,
   input : @data.Envelope,
 ) -> @data.Envelope raise {
+  if self is DropMatching(filter) {
+    return filter.process(input)
+  }
   if self is Redact(keys, body~) {
     return @data.from_json(input.signal(), redact(input.to_json(), keys, body))
   }
