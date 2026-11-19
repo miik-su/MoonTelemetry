@@ -342,6 +342,13 @@ async fn Destination::send_locked(
             if @async.is_being_cancelled() {
               raise e
             }
+            // A total-budget-clipped attempt can time out just before the
+            // outer timer fires. It has consumed its allowance; do not turn
+            // that race into a retry-policy failure or start another attempt.
+            if e is @async.TimeoutError && remaining <= timeout_ms.to_int64() {
+              self.current_error = "export_total_timeout"
+              return input.count()
+            }
             if attempt >= retries {
               self.current_error = "retry_exhausted"
               return input.count()

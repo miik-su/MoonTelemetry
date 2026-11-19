@@ -104,6 +104,8 @@ async test "total export deadline cancels active attempt and releases budget and
       Some(Json::string("export_total_timeout")),
     )
     assert_eq(stats.get("failedBatches"), Some(Json::string("1")))
+    assert_eq(stats.get("retryAttempts"), Some(Json::string("0")))
+    assert_eq(stats.get("activeSends"), Some(Json::number(0)))
     assert_eq(destination.send(input), 0)
     assert_eq(budget.used(), 0L)
     destination.close()
