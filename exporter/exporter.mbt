@@ -16,11 +16,11 @@ pub struct Destination {
   mut last_error : String
   mut last_failure_ms : Int64
   mut current_error : String
-  mut send_calls : Int64
-  mut active_sends : Int32
-  mut total_send_ms : Int64
-  mut last_send_ms : Int64
-  mut max_send_ms : Int64
+  priv mut send_calls : Int64
+  priv mut active_sends : Int32
+  priv mut total_send_ms : Int64
+  priv mut last_send_ms : Int64
+  priv mut max_send_ms : Int64
 }
 
 ///|

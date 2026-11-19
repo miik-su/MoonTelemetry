@@ -121,16 +121,16 @@ Envelope 的已知消息保留生成模型；遇到未来枚举值时使用带�
 | `rssBytes` | 十进制字符串或 null，实际进程观测，非预算上限 |
 | `logicalMemoryLimit / logicalMemoryAvailable` | 十进制字符串，逻辑预算总额及余量 |
 | `requestMemoryLimit / requestMemoryAvailable` | 十进制字符串，请求预算总额及余量 |
+| `receivers` | 按 receiver ID 分组的请求、拒绝、超时、连接计数 |
+| `pipelines[].input / outputs[]` | accepted、delivered、dropped、overflowDropped、shutdownLost、queuedBatches、retainedBytes |
+| `outputs[].destination` | componentId、成功／失败批次、重试次数、拒绝记录、安全错误类别 |
+| `processorFailedRecords / filtered` | 处理失败和主动过滤分别计数 |
 
 每个共享 Destination 的 `sendCalls`、`lastSendDurationMs`、`totalSendDurationMs`、
 `maxSendDurationMs` 为十进制字符串；`activeSends` 是整数，包含正在等待发送锁的调用。
 耗时包括锁等待、重试和退避。关闭后的正常已完成调用可核对 activeSends 为零，
 但累计调用数不等于远程实际接收次数。无效插件拒绝数量使用 invalid_rejected_count
 安全分类并按整批拒绝，不计为成功。健康字段不包含原始遥测或异常文本。
-| `receivers` | 按 receiver ID 分组的请求、拒绝、超时、连接计数 |
-| `pipelines[].input / outputs[]` | accepted、delivered、dropped、overflowDropped、shutdownLost、queuedBatches、retainedBytes |
-| `outputs[].destination` | componentId、成功／失败批次、重试次数、拒绝记录、安全错误类别 |
-| `processorFailedRecords / filtered` | 处理失败和主动过滤分别计数 |
 
 计数可能使用字符串避免 64 位精度损失，队列长度等较小数值使用 JSON Number。
 共享 Destination 的统计会在不同 pipeline 下重复展示，不能直接相加。
