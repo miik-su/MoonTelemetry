@@ -17,3 +17,7 @@ telemetry or credentials in fixtures. Report vulnerabilities through SECURITY.md
 
 Contributions are provided under the project's Apache-2.0 license. No separate
 CLA or commercial service terms are required by this project.
+Use the maintained issue/PR templates to state a concrete change and its focused
+evidence. Follow docs/MAINTENANCE.md, docs/THREAT_MODEL.md and docs/PLUGINS.md when
+changing protocol, trust or extension contracts. Review new dependencies/data
+sources before merging; package checks do not replace security/license review.

@@ -1,0 +1,24 @@
+name: Scoped maintenance
+description: Propose a verifiable Collector change.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and resulting behavior
+      description: State the user need, current behavior and intended change.
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Scope and compatibility
+      description: Identify affected protocol, queue/privacy/plugin contracts, docs and dependency/license changes.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Focused validation
+      description: Name necessary tests and acceptance invariants; distinguish future work and untested deployment assumptions.
+    validations:
+      required: true

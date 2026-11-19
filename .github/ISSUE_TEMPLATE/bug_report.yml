@@ -1,0 +1,27 @@
+name: Reproducible bug
+description: Report a non-sensitive issue using synthetic input.
+body:
+  - type: markdown
+    attributes:
+      value: "For exploitable vulnerabilities or private data, follow SECURITY.md instead of posting payloads here."
+  - type: textarea
+    id: environment
+    attributes:
+      label: Source and environment
+      description: Full source SHA, moon version --all, platform and Native compiler.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal synthetic reproduction
+      description: Commands and a small synthetic config/input; remove tokens and real telemetry.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+      description: Include the relevant protocol, accounting, privacy or lifecycle boundary.
+    validations:
+      required: true
