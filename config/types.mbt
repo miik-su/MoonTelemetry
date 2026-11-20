@@ -56,6 +56,13 @@ pub struct RoutingSpec {
 }
 
 ///|
+pub struct SelfMetricsSpec {
+  exporter : String
+  instance_id : String
+  interval_ms : Int32
+}
+
+///|
 pub struct Config {
   delivery_policy : String
   limits : @data.Limits
@@ -68,6 +75,7 @@ pub struct Config {
   receivers : Map[String, ReceiverSpec]
   exporters : Map[String, ExporterSpec]
   pipelines : Array[PipelineSpec]
+  self_metrics : SelfMetricsSpec?
   queue_capacity : Int32
   queue_bytes : Int32
   shutdown_timeout_ms : Int32

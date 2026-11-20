@@ -281,6 +281,15 @@ pub fn parse(
       used_exporters[name] = true
     }
   }
+  let self_metrics = parse_self_metrics(planned_service.get("self_metrics"))
+  if self_metrics is Some(metrics) {
+    if used_exporters.contains(metrics.exporter) {
+      error(
+        "service.self_metrics.exporter", "must be dedicated to self metrics",
+      )
+    }
+    used_exporters[metrics.exporter] = true
+  }
   let limits_config = object(root.get("limits").unwrap_or({}), "limits")
   fields(
     limits_config,
@@ -500,7 +509,7 @@ pub fn parse(
     [
       "pipelines", "queue_capacity", "queue_bytes", "shutdown_timeout_ms", "memory_budget_bytes",
       "request_memory_budget_bytes", "max_total_connections", "file_budget_bytes",
-      "delivery_policy",
+      "delivery_policy", "self_metrics",
     ],
     "service",
   )
@@ -568,6 +577,9 @@ pub fn parse(
   }
   if pipelines.is_empty() {
     error("service.pipelines", "at least one pipeline required")
+  }
+  if self_metrics is Some(metrics) && !exporters.contains(metrics.exporter) {
+    error("service.self_metrics.exporter", "unknown exporter")
   }
   let file_paths : Map[String, Bool] = Map([])
   for _, spec in exporters {
@@ -654,6 +666,7 @@ pub fn parse(
     receivers,
     exporters,
     pipelines,
+    self_metrics,
     queue_capacity: number(service, "queue_capacity", 64, "service", max=65536),
     queue_bytes: number(service, "queue_bytes", 33554432, "service"),
     shutdown_timeout_ms: number(

@@ -28,6 +28,7 @@ pub struct Runtime {
   lifecycle : @component.Lifecycle
   mut draining : Bool
   destinations : Array[@exporter.Destination]
+  priv self_metrics : SelfMetrics?
 }
 
 ///|
@@ -139,6 +140,11 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
     lifecycle: @component.Lifecycle::new(),
     draining: false,
     destinations: destinations.values().collect(),
+    self_metrics: config.self_metrics.map(spec => {
+      spec,
+      destination: destinations[spec.exporter],
+      snapshot_failures: 0L,
+    }),
   }
 }
 
@@ -198,6 +204,16 @@ pub fn Runtime::health(self : Runtime) -> Json {
       self.requests.available().to_string(),
     ),
     "deliveryPolicy": Json::string(self.config.delivery_policy),
+    "selfMetrics": match self.self_metrics {
+      Some(metrics) =>
+        {
+          "destination": metrics.destination.stats(),
+          "snapshotFailures": Json::string(
+            metrics.snapshot_failures.to_string(),
+          ),
+        }
+      None => Json::null()
+    },
     "requestMemoryUsed": Json::string(self.requests.used().to_string()),
     "rssBytes": match @memory.rss_bytes() {
       Some(bytes) => Json::string(bytes.to_string())
@@ -454,10 +470,16 @@ async fn Runtime::run_inner(self : Runtime, stop_after_ms? : Int32) -> Unit {
     )
   }
   let failure : Error? = try {
+    let started = @async.now()
     let _ = @async.handle_cancellation(async fn() {
       let serve_all = async fn() {
         @async.with_task_group(group => {
           group.spawn_bg(async fn() { workers(self) })
+          if self.self_metrics is Some(metrics) {
+            group.spawn_bg(async fn() {
+              export_self_metrics(self, metrics, started)
+            })
+          }
           for i, pair in active {
             group.spawn_bg(async fn() {
               @otlp.serve(
