@@ -15,6 +15,13 @@ extend through MoonBit traits and factory registration. Receiver, processor,
 exporter and service contracts stay separate. Shared exporter instances
 serialize sends and close after active sends finish.
 
+Filtering supports bounded all/any/not expressions, typed record/resource
+attributes and log severity; it excludes matching records rather than routing
+them to new destinations. Plugin registration uses a versioned source API.
+Health JSON exposes budget headroom and destination timing; a standard OTLP
+self-metrics exporter is not implemented. See [filtering](docs/FILTERING.md)
+and [plugin contracts](docs/PLUGINS.md).
+
 This 0.1.x project remains experimental. Volatile queues, bounded retries,
 logical memory budgets and rotating files do not provide durable delivery,
 exactly-once semantics, a hard RSS ceiling or a filesystem security boundary.
@@ -23,5 +30,6 @@ See [compatibility](COMPATIBILITY.md), [operations](docs/OPERATIONS.md) and
 
 gRPC, YAML, profiles, durable queues, tail sampling, dashboard and distributed
 coordination are outside the current implementation. Long-duration production
-qualification remains separate from the focused regressions and short-load
-evidence recorded in [validation](docs/VALIDATION.md).
+qualification remains separate from focused regressions and the explicitly
+dated synthetic load evidence recorded in [validation](docs/VALIDATION.md).
+Container/TLS templates require deployment verification on the target host.

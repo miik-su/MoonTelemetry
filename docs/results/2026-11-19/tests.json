@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "kind": "selected_ci_test_counts",
+  "sourceRevision": "bf8f602312796e456e96d3756faf13b62db7b170",
+  "workflowUrl": "https://github.com/miik-su/MoonTelemetry/actions/runs/44543418766",
+  "backend": "native",
+  "compiler": "0.10.20+65efd5b93",
+  "fullSuiteExecuted": false,
+  "platforms": [
+    {
+      "platform": "Windows",
+      "jobId": 135627478115,
+      "totalPassed": 85,
+      "totalFailed": 0,
+      "quickstartPassed": true
+    },
+    {
+      "platform": "Linux",
+      "jobId": 135627477348,
+      "totalPassed": 86,
+      "totalFailed": 0,
+      "quickstartPassed": true
+    }
+  ],
+  "packages": [
+    {
+      "name": "core/component",
+      "windowsPassed": 4,
+      "linuxPassed": 4
+    },
+    {
+      "name": "pipeline",
+      "windowsPassed": 2,
+      "linuxPassed": 2
+    },
+    {
+      "name": "extensions/memory",
+      "windowsPassed": 1,
+      "linuxPassed": 1
+    },
+    {
+      "name": "core/data",
+      "windowsPassed": 24,
+      "linuxPassed": 24
+    },
+    {
+      "name": "processor",
+      "windowsPassed": 9,
+      "linuxPassed": 9
+    },
+    {
+      "name": "config",
+      "windowsPassed": 9,
+      "linuxPassed": 9
+    },
+    {
+      "name": "exporter",
+      "windowsPassed": 2,
+      "linuxPassed": 2
+    },
+    {
+      "name": "service",
+      "windowsPassed": 1,
+      "linuxPassed": 1
+    },
+    {
+      "name": "cli",
+      "windowsPassed": 1,
+      "linuxPassed": 1
+    },
+    {
+      "name": "receiver/otlp",
+      "windowsPassed": 2,
+      "linuxPassed": 2
+    },
+    {
+      "name": "tests/integration",
+      "windowsPassed": 30,
+      "linuxPassed": 31
+    }
+  ],
+  "countsSource": "Transcribed from the eleven selected moon test step totals in both GitHub Actions job logs."
+}

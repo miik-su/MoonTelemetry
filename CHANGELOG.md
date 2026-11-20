@@ -2,6 +2,16 @@
 
 ## 0.1.3 — source maintenance candidate
 
+- Preserve the requested OTLP response encoding for source-policy rejection;
+  classify total-budget-clipped attempt timeouts consistently on both platforms.
+- Expand typed AnyValue and trace-relationship model checks, privacy/filter
+  integration and bounded filter configuration mutation seeds.
+- Add package-content/license/version checks, manifest provenance, separate
+  process quickstart checks and dated synthetic evidence. All automation is
+  MoonBit; no registry publication is performed.
+- Clarify code/data/protocol licenses, plugin trust, compatibility evidence,
+  deployment assumptions and the maintained roadmap. Supply unqualified
+  container/TLS templates without claiming deployment certification.
 - Remove the redundant force-flush before SDK shutdown that emitted the same
   cumulative metric snapshot twice in the demo. Verify one log, metric point
   and span reaches a separate Collector process and its file output.

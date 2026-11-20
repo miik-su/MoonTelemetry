@@ -48,6 +48,16 @@ pkgtype(kind: "executable")
 
 ## 发布前核对
 
+暂停发布期间可单独执行以下本地核对，它不会登录或发布：
+
+```sh
+moon run tools/check_distribution.mbtx --target native
+```
+
+结果记录包内必要声明、已知凭据／缓存路径排除、CLI 版本一致性和本次 ZIP 哈希。
+它不扫描所有文件内容中的秘密，也不证明完整依赖包完整性或无已知漏洞。
+下列含注册表预检和发布的步骤只供将来恢复发布时使用。
+
 ```sh
 moon run tools/generate_metadata.mbtx
 moon fmt --check

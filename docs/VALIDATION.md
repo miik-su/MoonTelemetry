@@ -1,4 +1,10 @@
-# Validation record — 2026-11-13
+# Validation records
+
+Latest maintenance evidence: [2026-11-19](results/2026-11-19/README.md).
+Each report retains its actual source revision. New documentation does not
+retag older measurements as current-version performance or certification.
+
+## Historical record — 2026-11-13
 
 Toolchain: moon 0.1.20261104 / moonc 0.10.20+65efd5b93, Native.
 Local evidence uses Windows x64/MSVC; CI also exercises Ubuntu x64.
