@@ -4,9 +4,11 @@ struct Route {
   input : @pipeline.Queue
   outputs : Array[(@pipeline.Queue, @exporter.Destination)]
   batch : @processor.Batch?
+  selectors : Array[(Array[@processor.Filter], Array[@processor.Filter]?)]?
   pending : Array[@pipeline.Packet]
   mut complete : Bool
   mut filtered : Int64
+  mut routing_failures : Int64
   mut dropped : Int64
   mut processed : Int64
   mut shutdown_lost : Int64
@@ -53,6 +55,28 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
   let receiver_stats = config.receivers.map((_, _) => @otlp.ReceiverStats::new())
   for spec in config.pipelines {
     workspace += config.queue_bytes.to_int64() * 3L
+    let selectors = spec.routing.map(routing => {
+      let all_rules = routing.rules.map(rule => rule.1)
+      spec.exporters.map(id => {
+        (
+          routing.rules.filter_map(rule => {
+            if rule.0 == id {
+              Some(rule.1)
+            } else {
+              None
+            }
+          }),
+          if routing.default_exporters.contains(id) {
+            Some(all_rules)
+          } else {
+            None
+          },
+        )
+      })
+    })
+    if selectors is Some(_) {
+      workspace += config.queue_bytes.to_int64() * 3L
+    }
     let mut batch = None
     for p in spec.processors {
       if p is Batch(size~, timeout_ms~, max_bytes~) {
@@ -86,9 +110,11 @@ pub fn Runtime::new(config : @config.Config) -> Runtime raise {
       ),
       outputs,
       batch,
+      selectors,
       pending: [],
       complete: false,
       filtered: 0L,
+      routing_failures: 0L,
       dropped: 0L,
       processed: 0L,
       shutdown_lost: 0L,
@@ -187,6 +213,7 @@ pub fn Runtime::health(self : Runtime) -> Json {
             "id": Json::string(r.spec.id),
             "input": r.input.stats(),
             "filtered": Json::string(r.filtered.to_string()),
+            "routingFailedOutputs": Json::string(r.routing_failures.to_string()),
             "processorDropped": Json::string(r.dropped.to_string()),
             "processedRecords": Json::string(r.processed.to_string()),
             "processorFailedRecords": Json::string(r.dropped.to_string()),
@@ -211,10 +238,40 @@ pub fn Runtime::health(self : Runtime) -> Json {
 
 ///|
 fn emit(route : Route, packet : @pipeline.Packet) -> Unit {
-  for pair in route.outputs {
-    if !pair.0.push(packet) {
-      pair.0.record_overflow(packet)
+  if route.selectors is Some(selectors) {
+    let payload = packet.decode().to_json() catch {
+        _ => {
+          route.routing_failures += route.outputs.length().to_int64()
+          return
+        }
+      }
+    for i, pair in route.outputs {
+      let (rules, fallback) = selectors[i]
+      try {
+        let selected = @processor.select_records(
+          packet.signal,
+          payload,
+          rules,
+          fallback_unless?=fallback,
+        )
+        if selected.count() > 0 {
+          enqueue_output(pair.0, @pipeline.Packet::new(selected))
+        }
+      } catch {
+        _ => route.routing_failures += 1L
+      }
     }
+    return
+  }
+  for pair in route.outputs {
+    enqueue_output(pair.0, packet)
+  }
+}
+
+///|
+fn enqueue_output(queue : @pipeline.Queue, packet : @pipeline.Packet) -> Unit {
+  if !queue.push(packet) {
+    queue.record_overflow(packet)
   }
 }
 

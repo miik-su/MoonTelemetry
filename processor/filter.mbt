@@ -226,9 +226,10 @@ fn Rule::matches(
 ///|
 fn filter_walk(
   value : Json,
-  rule : Rule,
+  keep : (Json, Json, @data.Signal) -> Bool,
   inherited : Json,
   signal : @data.Signal,
+  prune_empty : Bool,
 ) -> Json {
   match value {
     Object(fields) => {
@@ -240,21 +241,56 @@ fn filter_walk(
       for key, value in fields {
         out[key] = if ["logRecords", "spans", "dataPoints"].contains(key) &&
           value is Array(records) {
-          Json::array(
-            records
-            .filter(v => !rule.matches(v, resource, signal))
-            .map(v => filter_walk(v, rule, resource, signal)),
-          )
+          Json::array(records.filter(v => keep(v, resource, signal)))
         } else {
-          filter_walk(value, rule, resource, signal)
+          let selected = filter_walk(value, keep, resource, signal, prune_empty)
+          if prune_empty && selected is Array(groups) {
+            let children = match key {
+              "resourceLogs" => "scopeLogs"
+              "resourceSpans" => "scopeSpans"
+              "resourceMetrics" => "scopeMetrics"
+              "scopeLogs" => "logRecords"
+              "scopeSpans" => "spans"
+              "scopeMetrics" => "metrics"
+              _ => ""
+            }
+            if !children.is_empty() {
+              Json::array(groups.filter(group => has_children(group, children)))
+            } else if key == "metrics" {
+              Json::array(
+                groups.filter(metric => {
+                  metric is Object(metric) &&
+                  [
+                    "gauge", "sum", "histogram", "exponentialHistogram", "summary",
+                  ].any(kind => {
+                    metric.get(kind) is Some(data) &&
+                    has_children(data, "dataPoints")
+                  })
+                }),
+              )
+            } else {
+              selected
+            }
+          } else {
+            selected
+          }
         }
       }
       Json::object(out)
     }
     Array(values) =>
-      Json::array(values.map(v => filter_walk(v, rule, inherited, signal)))
+      Json::array(
+        values.map(v => filter_walk(v, keep, inherited, signal, prune_empty)),
+      )
     _ => value
   }
+}
+
+///|
+fn has_children(value : Json, key : String) -> Bool {
+  value is Object(fields) &&
+  fields.get(key) is Some(Array(children)) &&
+  !children.is_empty()
 }
 
 ///|
@@ -264,6 +300,39 @@ pub fn Filter::process(
 ) -> @data.Envelope raise {
   @data.from_json(
     input.signal(),
-    filter_walk(input.to_json(), self.rule, Json::array([]), input.signal()),
+    filter_walk(
+      input.to_json(),
+      (record, resource, signal) => !self.rule.matches(record, resource, signal),
+      Json::array([]),
+      input.signal(),
+      false,
+    ),
+  )
+}
+
+///|
+/// Select records matching any rule. If fallback_unless is supplied, also keep
+/// records that match none of those rules. Keeps metadata only for selected groups.
+pub fn select_records(
+  signal : @data.Signal,
+  payload : Json,
+  matches : Array[Filter],
+  fallback_unless? : Array[Filter],
+) -> @data.Envelope raise {
+  @data.from_json(
+    signal,
+    filter_walk(
+      payload,
+      (record, resource, signal) => {
+        matches.any(f => f.rule.matches(record, resource, signal)) ||
+        (
+          fallback_unless is Some(rules) &&
+          !rules.any(f => f.rule.matches(record, resource, signal))
+        )
+      },
+      Json::array([]),
+      signal,
+      true,
+    ),
   )
 }

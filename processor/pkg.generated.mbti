@@ -10,6 +10,8 @@ import {
 // Values
 pub fn admit(@data.Envelope, Int32) -> Unit raise
 
+pub fn select_records(@data.Signal, @json.Json, Array[Filter], fallback_unless? : Array[Filter]) -> @data.Envelope raise
+
 // Errors
 
 // Types and methods

@@ -59,6 +59,7 @@ pub struct PipelineSpec {
   processors : Array[ProcessorSpec]
   processor_ids : Array[String]
   exporters : Array[String]
+  routing : RoutingSpec?
 }
 
 pub(all) enum ProcessorSpec {
@@ -82,6 +83,11 @@ pub struct ReceiverSpec {
   auth_token : String
   allowed_ips : Array[String]
   allow_remote_without_auth : Bool
+}
+
+pub struct RoutingSpec {
+  rules : Array[(String, @processor.Filter)]
+  default_exporters : Array[String]
 }
 
 // Type aliases

@@ -46,6 +46,13 @@ pub struct PipelineSpec {
   processors : Array[ProcessorSpec]
   processor_ids : Array[String]
   exporters : Array[String]
+  routing : RoutingSpec?
+}
+
+///|
+pub struct RoutingSpec {
+  rules : Array[(String, @processor.Filter)]
+  default_exporters : Array[String]
 }
 
 ///|

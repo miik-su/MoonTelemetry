@@ -527,7 +527,7 @@ pub fn parse(
       }
     }
     let m = object(j, p)
-    fields(m, ["receivers", "processors", "exporters"], p)
+    fields(m, ["receivers", "processors", "exporters", "routing"], p)
     let rs = names(m, "receivers", p)
     let ps = names(m, "processors", p)
     let es = names(m, "exporters", p)
@@ -563,6 +563,7 @@ pub fn parse(
       processors: specs,
       processor_ids: ps,
       exporters: es,
+      routing: parse_routing(m.get("routing"), es, p + ".routing"),
     })
   }
   if pipelines.is_empty() {
