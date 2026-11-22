@@ -89,7 +89,7 @@ moon run tools/check_quickstart.mbtx --target native
 
 ## 验证与维护
 
-本轮维护与机器可读结果见 [2026-11-19 验证页](docs/results/2026-11-19/README.md)。
+本轮维护与机器可读结果见 [0.1.4 验证页](docs/results/2026-11-22/README.md)。
 
 CI 对选定包、格式、生成接口、模型描述符、发行包和示例进行检查；独立工作流验证
 官方 Go Collector 互操作、覆盖反馈模糊测试与故障行为。**没有运行全量测试。**

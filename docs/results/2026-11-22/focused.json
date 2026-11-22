@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "e1724e306074eb4ccd00d28007f25c9bd86f8761",
+  "platform": "Windows x64 / MSVC",
+  "backend": "native",
+  "compiler": "0.10.20+65efd5b93",
+  "fullSuiteExecuted": false,
+  "command": "moon test config processor service tests/integration --target native",
+  "passed": 54,
+  "failed": 0,
+  "exampleConfigValidated": true,
+  "syntheticScenarios": {
+    "routing": {"inputRecords": 2, "outputCopies": 3, "copiesByTarget": [1, 1, 1]},
+    "selfMetrics": {
+      "encodings": ["JSON", "Protobuf"],
+      "snapshotsPerEncoding": 2,
+      "rejectedBatchesPerEncoding": 1,
+      "acceptedBatchesPerEncoding": 1
+    }
+  }
+}

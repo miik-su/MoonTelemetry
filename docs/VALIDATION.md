@@ -1,6 +1,7 @@
 # Validation records
 
-Latest maintenance evidence: [2026-11-19](results/2026-11-19/README.md).
+Latest maintenance evidence: [2026-11-22](results/2026-11-22/README.md).
+The [2026-11-19 evidence](results/2026-11-19/README.md) covers the 0.1.3 candidate.
 Each report retains its actual source revision. New documentation does not
 retag older measurements as current-version performance or certification.
 
