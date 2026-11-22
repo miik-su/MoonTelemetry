@@ -39,6 +39,18 @@ fn host_windows() -> Bool { true }
 fn host_windows() -> Bool { false }
 
 ///|
+async fn sha256(path : String) -> String {
+  let (code,stdout,_) = if host_windows() { @process.collect_output("certutil",["-hashfile",path,"SHA256"],no_console_window=true) } else { @process.collect_output("sha256sum",[path],no_console_window=true) }
+  assert_eq(code,0,msg="unable to hash " + path)
+  let candidates = @utf8.decode_lossy(stdout.binary()).split("\n")
+    .map(line=>line.trim().to_owned().to_lower().split(" ").next().unwrap_or("").to_owned())
+    .filter(value=>value.length()==64 && value.iter().all(c=>(c>='0' && c<='9') || (c>='a' && c<='f')))
+    .collect()
+  guard candidates.length() == 1 else { abort("cannot read SHA-256") }
+  candidates[0]
+}
+
+///|
 async fn main {
   guard @json.parse(@fs.read_file("tools/dependency-policy.json").text()) is Object(policy) else { abort("expected dependency policy") }
   let allowed : Map[String,Bool] = Map([])
@@ -49,24 +61,27 @@ async fn main {
   let declared = imports(@fs.read_file("moon.mod").text())
   assert_eq(declared.length(),policy.length())
   for dependency in declared { assert_true(allowed.contains(dependency),msg="unapproved direct dependency: "+dependency) }
-  let windows = host_windows()
+  let moon_home = match @env.get_env_var("MOON_HOME") {
+    Some(home) => home
+    None => @env.get_env_var(if host_windows() { "USERPROFILE" } else { "HOME" }).unwrap_or("") + "/.moon"
+  }
   let components = []
   for name,spec in policy {
-    guard spec is Object(p) else { abort("expected policy object") }
+    guard spec is Object(p) && p.get("archive_sha256") is Some(String(expected)) &&
+      p.get("version") is Some(String(version)) else { abort("expected pinned archive hash and version") }
     let manifest_path = ".mooncakes/"+name+"/moon.mod"
     let manifest = @fs.read_file(manifest_path).text()
     for key in ["version","license","repository"] { assert_eq(Json::string(field(manifest,key)),p[key],msg=name+" "+key) }
     assert_eq(field(manifest,"name"),name)
     for dependency in imports(manifest) { assert_true(allowed.contains(dependency),msg="unapproved transitive dependency: "+dependency) }
-    let (code,stdout,_) = if windows { @process.collect_output("certutil",["-hashfile",manifest_path,"SHA256"],no_console_window=true) } else { @process.collect_output("sha256sum",[manifest_path],no_console_window=true) }
-    assert_eq(code,0)
-    let lines = @utf8.decode_lossy(stdout.binary()).split("\n").map(line=>line.trim().to_owned().to_lower()).collect()
-    let candidates = lines.map(line=>line.split(" ").next().unwrap_or("").to_owned()).filter(value=>value.length()==64 && value.iter().all(c=>(c>='0' && c<='9') || (c>='a' && c<='f')))
-    guard candidates.length() == 1 else { abort("cannot read manifest checksum") }
-    components.push(({ "type":"library", "name":Json::string(name), "version":p["version"], "licenses":[{ "expression":p["license"] }], "externalReferences":[{ "type":"vcs", "url":p["repository"] }], "properties":[{ "name":"moontelemetry:manifestSha256", "value":Json::string(candidates[0]) }] } : Json))
+    let archive = moon_home + "/registry/cache/" + name + "/" + version + ".zip"
+    assert_true(@fs.exists(archive),msg="registry archive missing; sync project dependencies before checking: " + name)
+    let actual = sha256(archive)
+    assert_eq(actual,expected,msg="registry archive integrity mismatch: " + name)
+    components.push(({ "type":"library", "name":Json::string(name), "version":p["version"], "licenses":[{ "expression":p["license"] }], "externalReferences":[{ "type":"vcs", "url":p["repository"] }], "hashes":[{ "alg":"SHA-256", "content":Json::string(actual) }], "properties":[{ "name":"moontelemetry:manifestSha256", "value":Json::string(sha256(manifest_path)) }] } : Json))
   }
   @fs.mkdir("_build/ci-results",recursive=true,allow_exist=true)
-  let report : Json = { "bomFormat":"CycloneDX", "specVersion":"1.5", "version":1, "components":Json::array(components), "properties":[{ "name":"moontelemetry:scope", "value":"Selected Mooncakes direct/transitive module manifests; hash is manifest-only, not complete package integrity or vulnerability attestation" },{ "name":"moontelemetry:sourceRevision", "value":Json::string(@env.get_env_var("GITHUB_SHA").unwrap_or("local-working-tree")) }] }
+  let report : Json = { "bomFormat":"CycloneDX", "specVersion":"1.5", "version":1, "components":Json::array(components), "properties":[{ "name":"moontelemetry:scope", "value":"Locked Mooncakes source archives and installed module manifests; archive hashes do not attest the unpacked tree, compiler, system libraries or vulnerabilities" },{ "name":"moontelemetry:sourceRevision", "value":Json::string(@env.get_env_var("GITHUB_SHA").unwrap_or("local-working-tree")) }] }
   @fs.write_file("_build/ci-results/dependencies.cdx.json",report.stringify()+"\n")
-  println("Verified pinned versions, licenses, repositories and transitive module imports; wrote manifest provenance snapshot")
+  println("Verified module archives, declared licenses, manifest provenance and transitive imports")
 }
