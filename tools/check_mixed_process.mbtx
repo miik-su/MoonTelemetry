@@ -1,0 +1,263 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/http",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/async@0.22.5/socket",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+}
+----
+
+///|
+let signals : Array[String] = ["logs", "metrics", "traces"]
+
+///|
+let fields : Array[String] = ["logRecords", "dataPoints", "spans"]
+
+///|
+let paths : Array[String] = ["/v1/logs", "/v1/metrics", "/v1/traces"]
+
+///|
+#cfg(platform="windows")
+fn platform() -> String { "Windows" }
+
+///|
+#cfg(not(platform="windows"))
+fn platform() -> String { "Linux" }
+
+///|
+fn object(value : Json) -> Map[String, Json] {
+  guard value is Object(map) else { abort("expected object") }
+  map
+}
+
+///|
+fn count(value : Json, key : String) -> Int {
+  match value {
+    Object(map) => {
+      let mut n = 0
+      for name, child in map {
+        n += if key == name && child is Array(children) { children.length() } else { count(child, key) }
+      }
+      n
+    }
+    Array(items) => items.fold(init=0, (n, item) => n + count(item, key))
+    _ => 0
+  }
+}
+
+///|
+async fn command(name : String, args : Array[String]) -> String {
+  let (code, stdout, _) = @process.collect_output(name, args[:], no_console_window=true)
+  assert_eq(code, 0, msg=name + " failed")
+  stdout.text().trim().to_owned()
+}
+
+///|
+async fn cpu_ms(pid : Int) -> Int64 {
+  if platform() == "Windows" {
+    // ID is supplied by the process API and rendered as a decimal integer.
+    let script = "(Get-Process -Id " + pid.to_string() + ").TotalProcessorTime.TotalMilliseconds"
+    let output = command("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
+      "[Console]::Write((" + script + ").ToString([Globalization.CultureInfo]::InvariantCulture))"])
+    @string.parse_double(output).to_int64()
+  } else {
+    let stat = @fs.read_file("/proc/\{pid}/stat").text()
+    let parts = stat.split(") ").collect()
+    let fields = parts[parts.length() - 1].split(" ").collect()
+    let ticks = @string.parse_int64(fields[11].to_owned()) + @string.parse_int64(fields[12].to_owned())
+    let frequency = @string.parse_int64(command("getconf", ["CLK_TCK"]))
+    ticks * 1000L / frequency
+  }
+}
+
+///|
+async fn health(url : String) -> Json {
+  let client = @http.Client(url)
+  defer client.close()
+  let response = client.get("/health/ready")
+  let body = client.read_all().text()
+  assert_eq(response.code, 200)
+  @json.parse(body)
+}
+
+///|
+fn decimal(map : Map[String,Json], key : String) -> Int64 {
+  guard map.get(key) is Some(String(value)) else { abort("missing counter: " + key) }
+  @string.parse_int64(value) catch { _ => abort("invalid counter: " + key) }
+}
+
+///|
+fn config(port : Int, ports : Array[Int]) -> Json {
+  let pipelines : Map[String,Json] = Map([])
+  for signal in signals {
+    pipelines[signal] = {
+      "receivers": ["otlp"], "processors": ["batch"], "exporters": ["otlp/one", "otlp/two"],
+    }
+  }
+  {
+    "receivers": { "otlp": { "port": Json::number(port.to_double()) } },
+    "processors": { "batch": { "size": 64, "timeout_ms": 100, "max_bytes": 262144 } },
+    "exporters": {
+      "otlp/one": { "endpoint": Json::string("http://127.0.0.1:\{ports[0]}"), "json": true, "retries": 0 },
+      "otlp/two": { "endpoint": Json::string("http://127.0.0.1:\{ports[1]}"), "json": true, "retries": 0 },
+    },
+    "service": {
+      "queue_bytes": 1048576, "memory_budget_bytes": 67108864,
+      "request_memory_budget_bytes": 8388608, "pipelines": Json::object(pipelines),
+    },
+  }
+}
+
+///|
+async fn main {
+  let seconds = @string.parse_int(@env.get_env_var("MOONTELEMETRY_MIXED_SECONDS").unwrap_or("5"))
+  let pause = @string.parse_int(@env.get_env_var("MOONTELEMETRY_MIXED_PAUSE_MS").unwrap_or("25"))
+  assert_true(seconds >= 1 && seconds <= 86400)
+  assert_true(pause >= 1 && pause <= 1000)
+  let revision = command("git", ["rev-parse", "HEAD"])
+  let dirty = !command("git", ["status", "--porcelain"]).is_empty()
+  let base = "_build/native/release/build/cmd/moontelemetry/moontelemetry"
+  let cli = if @fs.exists(base + ".exe") { base + ".exe" } else { base }
+  assert_true(@fs.exists(cli), msg="build cmd/moontelemetry in native release mode first")
+  let folder = @fs.tmpdir(prefix="moontelemetry-mixed-")
+  defer @fs.rmdir(folder, recursive=true)
+  let result = "_build/mixed-process/result.json"
+  @fs.mkdir("_build/mixed-process", recursive=true, allow_exist=true)
+  if @fs.exists(result) { @fs.remove(result) }
+  let reserve = @http.Server(@socket.Addr::new(2130706433U, 0))
+  let port = reserve.addr.port()
+  let sinks = [@http.Server(@socket.Addr::new(2130706433U, 0)), @http.Server(@socket.Addr::new(2130706433U, 0))]
+  defer (for sink in sinks { sink.close() })
+  reserve.close()
+  let counts = [Array::make(3, 0L), Array::make(3, 0L)]
+  let accepted = Array::make(3, 0L)
+  let requests = Array::make(3, 0L)
+  let errors = Array::make(3, 0L)
+  let rejected = Array::make(3, 0L)
+  let payloads = []
+  for signal in signals {
+    payloads.push(@fs.read_file("tests/fixtures/expanded/" + signal + ".json").text())
+  }
+  let sizes = payloads.mapi((i, body) => count(@json.parse(body) catch { _ => abort("fixture JSON") }, fields[i]))
+  assert_true(sizes.all(n => n > 0))
+  let headers = Map::from_array([(@http.CaseInsensitiveString("Content-Type"), "application/json")])
+  @fs.write_file(folder + "/config.json", config(port, sinks.map(s => s.addr.port())).stringify())
+  let log = @process.redirect_to_file("_build/mixed-process/collector.log", shared=true)
+  defer log.close()
+  let samples = []
+  let start_cpu = [0L]
+  let end_cpu = [0L]
+  let actual_ms = [0L]
+  let final_health = [Json::null()]
+  let drained_ok = [false]
+  @async.with_task_group(group => {
+    let handlers = []
+    for i, sink in sinks {
+      handlers.push(group.spawn(async fn() {
+        sink.run_forever(async fn(request, reader, conn) {
+          let body = @json.parse(reader.read_all().text())
+          let signal = paths.search(request.path)
+          guard signal is Some(j) else { abort("unexpected sink route") }
+          counts[i][j] += count(body, fields[j]).to_int64()
+          conn.send_response(200, "OK", extra_headers=headers)
+          conn.write(b"{}")
+          conn.end_response()
+        })
+      }))
+    }
+    defer (for handler in handlers { handler.cancel() })
+    println("Starting independent Collector")
+    let child = @process.spawn(group, cli, ["run", "--config", folder + "/config.json"], stdout=log, stderr=log, cancel_handler=@process.hard_cancel(), no_console_window=true)
+    defer child.cancel()
+    let url = "http://127.0.0.1:\{port}"
+    @async.with_timeout(10000, async fn() {
+      for ;; {
+        if (try { let _ = health(url); true } catch { _ => false }) { break }
+        @async.sleep(20)
+      }
+    })
+    println("Collector ready; measuring mixed signals")
+    start_cpu[0] = cpu_ms(child.pid)
+    let started = @async.now()
+    let deadline = started + seconds.to_int64() * 1000L
+    @async.with_task_group(load => {
+      let sampler = load.spawn(async fn() {
+        while @async.now() < deadline {
+          let rss = decimal(object(health(url)), "rssBytes")
+          samples.push(({ "elapsedMs": Json::number((@async.now() - started).to_double()), "rssBytes": Json::string(rss.to_string()) } : Json))
+          @async.sleep(1000)
+        }
+      })
+      defer sampler.cancel()
+      let workers = []
+      for i, signal in signals {
+        workers.push(load.spawn(async fn() {
+          let client = @http.Client(url)
+          defer client.close()
+          while @async.now() < deadline {
+            try {
+              let (code, body) = @async.with_timeout(3000, async fn() {
+                let response = client.post("/v1/" + signal, payloads[i], extra_headers=headers)
+                (response.code, client.read_all().text())
+              })
+              requests[i] += 1L
+              if code == 200 {
+                let response = object(@json.parse(body))
+                assert_false(response.contains("partialSuccess"), msg="partial response during mixed run")
+                accepted[i] += sizes[i].to_int64()
+              } else { rejected[i] += 1L }
+            } catch {
+              error => {
+                if @async.is_being_cancelled() { raise error }
+                errors[i] += 1L
+                break
+              }
+            }
+            @async.sleep(pause)
+          }
+        }))
+      }
+      for worker in workers { worker.wait() }
+      actual_ms[0] = @async.now() - started
+    })
+    end_cpu[0] = cpu_ms(child.pid)
+    println("Load finished; checking both destinations")
+    @async.with_timeout(10000, async fn() {
+      for ;; {
+        final_health[0] = health(url)
+        guard object(final_health[0]).get("pipelines") is Some(Array(pipes)) else { abort("missing pipelines") }
+        let drained = pipes.length() == signals.length() && pipes.all(p => {
+          let pipe = object(p)
+          guard pipe.get("id") is Some(String(id)) && signals.search(id) is Some(i) &&
+            pipe.get("outputs") is Some(Array(outputs)) else { abort("invalid pipeline stats") }
+          outputs.length() == 2 && outputs.all(q => decimal(object(q), "delivered") == accepted[i])
+        })
+        if drained { drained_ok[0] = true; break }
+        @async.sleep(20)
+      }
+    }) catch { @async.TimeoutError => (); error => raise error }
+    // Output conservation was observed before termination. Signal behavior
+    // is checked independently by the lifecycle workflow.
+    child.cancel()
+    let _ = child.wait()
+  })
+  let success = drained_ok[0] && errors.all(n => n == 0L) && rejected.all(n => n == 0L) &&
+    accepted.all(n => n > 0L) && counts[0] == accepted && counts[1] == accepted
+  let report : Json = {
+    "schemaVersion": 1, "sourceRevision": Json::string(revision), "workingTreeDirty": Json::boolean(dirty),
+    "platform": Json::string(platform()), "requestedSeconds": Json::number(seconds.to_double()),
+    "loadElapsedMs": Json::number(actual_ms[0].to_double()), "pausePerClientMs": Json::number(pause.to_double()),
+    "signals": signals, "requests": requests, "acceptedRecords": accepted, "rejectedRequests": rejected,
+    "transportOrResponseErrors": errors, "sinkDeliveredRecords": counts,
+    "collectorCpuMs": Json::string((end_cpu[0] - start_cpu[0]).to_string()), "collectorRssSamples": Json::array(samples),
+    "healthAfterDelivery": final_health[0], "outboundConservationVerified": Json::boolean(drained_ok[0]),
+    "passed": Json::boolean(success),
+  }
+  @fs.write_file(result, report.stringify() + "\n")
+  assert_true(success, msg="mixed signal conservation failed; see " + result)
+  println("Verified three signals, two sinks and separate Collector CPU/RSS")
+}

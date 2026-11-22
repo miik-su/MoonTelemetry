@@ -1,0 +1,41 @@
+name: Separate Collector mixed-signal checks
+on:
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: Load duration in seconds, from 1 to 14400
+        type: string
+        default: '60'
+  push:
+    paths: ['tools/check_mixed_process.mbtx', '.github/workflows/mixed-process.yml']
+  pull_request:
+    paths: ['tools/check_mixed_process.mbtx', '.github/workflows/mixed-process.yml']
+permissions:
+  contents: read
+jobs:
+  mixed:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 260
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756
+        if: runner.os == 'Windows'
+      - uses: hustcer/setup-moonbit@87e2bdf5cf20d3b6f5c5f266a8a513f503bb5b76
+        with:
+          version: 0.10.20+65efd5b93
+          core-version: 0.10.20+65efd5b93
+      - run: moon update
+      - run: moon build cmd/moontelemetry --target native --release
+      - run: moon run tools/check_mixed_process.mbtx --target native
+        env:
+          MOONTELEMETRY_MIXED_SECONDS: ${{ inputs.seconds || '5' }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: mixed-process-${{ matrix.os }}
+          path: _build/mixed-process/
+          retention-days: 30
