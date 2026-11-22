@@ -15,12 +15,13 @@ extend through MoonBit traits and factory registration. Receiver, processor,
 exporter and service contracts stay separate. Shared exporter instances
 serialize sends and close after active sends finish.
 
-Filtering supports bounded all/any/not expressions, typed record/resource
-attributes and log severity; it excludes matching records rather than routing
-them to new destinations. Plugin registration uses a versioned source API.
-Health JSON exposes budget headroom and destination timing; a standard OTLP
-self-metrics exporter is not implemented. See [filtering](docs/FILTERING.md)
-and [plugin contracts](docs/PLUGINS.md).
+Bounded all/any/not predicates, typed record/resource attributes and log severity
+are shared by exclusion filtering and per-record routing. Routing uses only
+pipeline-attached destinations, after processing and batching. Plugin
+registration uses a versioned source API. Health JSON exposes queue and
+destination details. Optional process-wide self metrics use a dedicated
+OTLP/HTTP destination with fixed metric names and no per-record labels.
+See [routing and self metrics](docs/ROUTING_AND_SELF_METRICS.md).
 
 This 0.1.x project remains experimental. Volatile queues, bounded retries,
 logical memory budgets and rotating files do not provide durable delivery,

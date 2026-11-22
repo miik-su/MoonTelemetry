@@ -1,0 +1,41 @@
+{
+  "receivers": {"otlp": {"host": "127.0.0.1", "port": 4318}},
+  "processors": {
+    "redaction": {"keys": ["secret"], "mode": "remove", "body": true},
+    "batch": {"size": 32, "timeout_ms": 200, "max_bytes": 262144}
+  },
+  "exporters": {
+    "debug/priority": {},
+    "debug/fallback": {},
+    "otlp/self": {
+      "endpoint": "http://127.0.0.1:14318",
+      "attempt_timeout_ms": 2000,
+      "total_timeout_ms": 3000,
+      "max_response_bytes": 65536,
+      "retries": 0
+    }
+  },
+  "service": {
+    "queue_bytes": 1048576,
+    "request_memory_budget_bytes": 8388608,
+    "memory_budget_bytes": 67108864,
+    "self_metrics": {
+      "exporter": "otlp/self",
+      "instance_id": "local-example",
+      "interval_ms": 30000
+    },
+    "pipelines": {
+      "logs": {
+        "receivers": ["otlp"],
+        "processors": ["redaction", "batch"],
+        "exporters": ["debug/priority", "debug/fallback"],
+        "routing": {
+          "rules": [
+            {"exporter": "debug/priority", "condition": {"field": "severityNumber", "operator": "gte", "value": 17}}
+          ],
+          "default_exporters": ["debug/fallback"]
+        }
+      }
+    }
+  }
+}

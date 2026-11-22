@@ -4,8 +4,7 @@
 
 MoonBit Native 可观测性 Collector：独立接收 Logs、Metrics、Traces，按顺序处理，
 通过独立有界队列转发到 Debug、轮转 JSONL 文件和 OTLP/HTTP 目标。
-当前源码为 **0.1.3 维护候选，实验阶段**；`v0.1.2` 已固定为历史源码基线。
-源码版本／标签不代表正式 GitHub Release 或 Mooncakes 已发布；Mooncakes 继续暂缓。
+当前源码为 **0.1.4，实验阶段**。安装方式及注册表状态见[发布说明](docs/DISTRIBUTION.md)。
 
 应用使用 SDK 产生遥测，MoonTelemetry 负责独立接收与处理。核心、网络、CLI、
 处理器、测试及维护自动化使用 MoonBit，RSS 观测使用小型原生 C shim。
@@ -16,10 +15,12 @@ flowchart LR
   SDK[应用 SDK] --> R[OTLP HTTP 接收与资源控制]
   R --> Q[易失输入队列]
   Q --> P[顺序处理与 Batch]
-  P --> A[目标 A 有界队列]
-  P --> B[目标 B 有界队列]
+  P --> T[按记录路由或广播]
+  T --> A[目标 A 有界队列]
+  T --> B[目标 B 有界队列]
   A --> D[共享串行 Destination]
   B --> E[其他 Destination]
+  M[自身指标快照] --> O[独立 OTLP Metrics 出口]
 ```
 
 ## 功能与边界
@@ -30,13 +31,16 @@ flowchart LR
 | 模型 | Logs、Traces；Gauge、Sum、Histogram、ExponentialHistogram、Summary；精确 64 位整数与明确的未知字段规则 |
 | Processor | 大小保护、Resource／记录属性、递归脱敏、Batch；有界 all/any/not、属性存在／等值／前缀、资源属性、日志严重度过滤 |
 | Exporter | Debug、轮转 JSONL、OTLP HTTP JSON／Protobuf；重试、连接复用、总期限及逐目标计数 |
+| 条件路由 | 处理后按记录匹配，可发送给多个目标，同一目标去重，未匹配走显式兜底 |
+| 自身指标 | 可选独立 OTLP/HTTP 推送，包含累计计数和内存／连接 Gauge |
 | 运维／扩展 | live/ready、独立健康鉴权、预算及 RSS、导出耗时；插件 API v1、工厂和有界关闭 |
 
 HTTP 200 表示进入易失输入队列。过滤、目标队列溢出、导出失败仍可发生；重试可能重复。
 没有持久化、exactly-once、硬 RSS 上限或完整 OTLP 一致性认证。
 普通解码／重编码可能丢弃未知 Protobuf 字段。指标和链路以结构校验为主。
-gRPC、接收端 TLS、YAML、Profiles、条件路由和标准自身 Metrics 出口当前未实现。
+gRPC、接收端 TLS、YAML、Profiles 和 Prometheus 抓取端点尚未实现。
 详情见[兼容矩阵](COMPATIBILITY.md)、[范围](SCOPE.md)和[交付语义](docs/OPERATIONS.md)。
+启用方式见[路由和自身指标示例](docs/ROUTING_AND_SELF_METRICS.md)。
 
 ## 快速开始
 

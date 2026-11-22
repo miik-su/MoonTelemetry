@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.4
+
+- Add per-record conditional routing after processors and batching, with
+  multi-target matches, target deduplication, fallback and copy accounting.
+- Add independent OTLP/HTTP export of fixed process-level cumulative counters
+  and gauges, derived from existing runtime statistics.
+- Add configuration, privacy, routing and dual-encoding export regressions.
+
 ## 0.1.3 — source maintenance candidate
 
 - Preserve the requested OTLP response encoding for source-policy rejection;

@@ -142,3 +142,15 @@ and a strong-kill/restart loss case; Windows console events and deployment-host
 supervisor behavior still need verification. On Linux, the async runtime retains
 the signal exit status after cleanup; a nonzero signal status alone does not
 mean flushing failed.
+## Conditional routing and self metrics
+
+After processing and batching, a routing pipeline writes one selected copy per
+matching destination and applies the fallback only when no rule matches. Output
+queue totals count copies, so they can exceed processed input records. A
+selection or re-encoding failure increments `routingFailedOutputs` and skips
+that target batch.
+
+Optional self metrics use a dedicated OTLP/HTTP destination and a single
+periodic snapshot. Monitor its failure statistics through `selfMetrics` in the
+health response. The [configuration guide](ROUTING_AND_SELF_METRICS.md) explains
+fallback, memory accounting, instance identity and the shutdown boundary.

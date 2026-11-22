@@ -11,6 +11,7 @@ Generated models are reused from `moonbit-community/opentelemetry` 0.1.8.
 | Supported | Nested AnyValue, exact integers, special floats, modeled trace context | core/data/model_boundary_test.mbt, integer_test.mbt, float_boundary_test.mbt |
 | Supported | Packed/unpacked normalization, modeled future enums | unpacked_wbtest.mbt, enum_test.mbt, wire_compat_test.mbt |
 | Supported | Recognized response encodings, bounded partial responses | receiver_security_test.mbt, response_boundary_test.mbt, exporter_safety_test.mbt |
+| Supported | Per-record routing and opt-in OTLP/HTTP self metrics | routing_test.mbt and self_metrics_test.mbt; fixed process-level metrics with JSON and protobuf |
 | Limited | Unknown fields | Ordinary re-encoding can discard them; unknown_fields_wbtest.mbt |
 | Limited | Metric/trace semantics | Structural checks, not bucket consistency, cross-request series/order or parent-graph verification; semantic_boundary_test.mbt |
 | Limited | General ProtoJSON | Declared numeric-enum OTLP profile, not an arbitrary protobuf JSON converter |
