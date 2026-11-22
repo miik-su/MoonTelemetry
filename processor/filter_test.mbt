@@ -149,6 +149,54 @@ test "resource predicates apply to five metric branches and valid spans" {
   assert_eq(metrics.count(), 5)
   assert_eq(rule.process(metrics).count(), 0)
   assert_eq(rule.process(traces).count(), 0)
+  for input in [metrics, traces] {
+    let signal = input.signal()
+    let json = input.to_json()
+    assert_eq(@processor.select_records(signal, json, [rule]).to_json(), json)
+    assert_eq(
+      @processor.select_records(signal, json, [], fallback_unless=[rule]).to_json(),
+      @data.from_json(signal, {}).to_json(),
+    )
+  }
+}
+
+///|
+test "metric routing keeps only requested points and nonempty metric groups" {
+  let point : Json = {
+    "asInt": "1",
+    "attributes": [{ "key": "route", "value": { "boolValue": true } }],
+  }
+  let data = @data.from_json(Metrics, {
+    "resourceMetrics": [
+      {
+        "scopeMetrics": [
+          {
+            "metrics": [
+              {
+                "name": "mixed",
+                "gauge": { "dataPoints": [point, { "asInt": "2" }] },
+              },
+              {
+                "name": "unmatched",
+                "gauge": { "dataPoints": [{ "asInt": "3" }] },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  })
+  let rule = @processor.Filter::parse({
+    "attribute": "route",
+    "operator": "exists",
+  })
+  let output = @processor.select_records(Metrics, data.to_json(), [rule])
+  assert_eq(output.count(), 1)
+  assert_false(output.to_json().stringify().contains("unmatched"))
+  assert_eq(
+    @data.decode(Metrics, output.encode(json=false), json=false).to_json(),
+    output.to_json(),
+  )
 }
 
 ///|
