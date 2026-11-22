@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "e1724e306074eb4ccd00d28007f25c9bd86f8761",
+  "fullSuiteExecuted": false,
+  "compiler": "0.10.20+65efd5b93",
+  "workflow": "https://github.com/miik-su/MoonTelemetry/actions/runs/45038210078",
+  "windows": {
+    "jobId": 137256559123,
+    "passed": 90,
+    "failed": 0
+  },
+  "linux": {
+    "jobId": 137256559381,
+    "passed": 91,
+    "failed": 0
+  },
+  "packages": [
+    {
+      "name": "core/component",
+      "windowsPassed": 4,
+      "linuxPassed": 4
+    },
+    {
+      "name": "pipeline",
+      "windowsPassed": 2,
+      "linuxPassed": 2
+    },
+    {
+      "name": "extensions/memory",
+      "windowsPassed": 1,
+      "linuxPassed": 1
+    },
+    {
+      "name": "core/data",
+      "windowsPassed": 24,
+      "linuxPassed": 24
+    },
+    {
+      "name": "processor",
+      "windowsPassed": 10,
+      "linuxPassed": 10
+    },
+    {
+      "name": "config",
+      "windowsPassed": 11,
+      "linuxPassed": 11
+    },
+    {
+      "name": "exporter",
+      "windowsPassed": 2,
+      "linuxPassed": 2
+    },
+    {
+      "name": "service",
+      "windowsPassed": 1,
+      "linuxPassed": 1
+    },
+    {
+      "name": "cli",
+      "windowsPassed": 1,
+      "linuxPassed": 1
+    },
+    {
+      "name": "receiver/otlp",
+      "windowsPassed": 2,
+      "linuxPassed": 2
+    },
+    {
+      "name": "tests/integration",
+      "windowsPassed": 32,
+      "linuxPassed": 33
+    }
+  ]
+}

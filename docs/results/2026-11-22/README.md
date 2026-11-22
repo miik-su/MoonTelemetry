@@ -14,6 +14,14 @@
 
 [结构化结果](focused.json) · [本地打包预检](distribution.raw.json)
 
+同一源码的 11 个关键包在 [GitHub Actions](https://github.com/miik-su/MoonTelemetry/actions/runs/45038210078)
+上通过。Windows 90 项、Linux 91 项，均为 0 失败。示例校验、独立快速开始和
+5 秒 HTTP 冒烟在两平台均通过。[分包计数 JSON](ci-tests.json)
+
+[官方 Collector 互操作](https://github.com/miik-su/MoonTelemetry/actions/runs/45038209872)、
+[Linux 生命周期故障](https://github.com/miik-su/MoonTelemetry/actions/runs/45038209923)及
+[覆盖反馈变异回归](https://github.com/miik-su/MoonTelemetry/actions/runs/45038210098)也通过。
+
 合成测试使用回环 HTTP。范围为关键受影响的包及示例，未运行全量测试或生产容量测试。
 归档哈希仅对应本次本地打包。注册表可用性见[发布说明](../../DISTRIBUTION.md)。
 
