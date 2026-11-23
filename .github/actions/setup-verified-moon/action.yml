@@ -1,0 +1,36 @@
+name: Set up verified MoonBit x64
+description: Check the pinned compiler and core archives before using the toolchain.
+runs:
+  using: composite
+  steps:
+    # This bootstrap must run before any MoonBit executable is available.
+    - shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $lock = Get-Content -Raw -LiteralPath "$env:GITHUB_ACTION_PATH/lock.json" | ConvertFrom-Json -AsHashtable
+        if ($env:RUNNER_ARCH -ne 'X64' -or !$lock.ContainsKey($env:RUNNER_OS)) {
+          throw 'This toolchain lock supports Windows and Linux x64'
+        }
+        $assets = $lock[$env:RUNNER_OS]
+        $install = Join-Path $env:RUNNER_TEMP "$($lock.version)-verified"
+        $download = Join-Path $install 'archives'
+        New-Item -ItemType Directory -Path $download | Out-Null
+        foreach ($asset in $assets) {
+          $archive = Join-Path $download $asset.file
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 180 --output $archive $asset.url
+          if ($LASTEXITCODE -ne 0) { throw "Toolchain download failed: $($asset.file)" }
+          $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -cne $asset.sha256) { throw "Unexpected SHA-256: $($asset.file)" }
+          Write-Host "$($asset.file) SHA-256 $actual"
+        }
+        New-Item -ItemType Directory -Path "$install/lib" | Out-Null
+        tar -xf (Join-Path $download $assets[0].file) -C $install
+        if ($LASTEXITCODE -ne 0) { throw 'Compiler extraction failed' }
+        tar -xf (Join-Path $download $assets[1].file) -C "$install/lib"
+        if ($LASTEXITCODE -ne 0) { throw 'Core extraction failed' }
+        $env:MOON_HOME = $install
+        $env:PATH = "$install/bin" + [IO.Path]::PathSeparator + $env:PATH
+        moon -C "$install/lib/core" bundle --warn-list -a --all
+        if ($LASTEXITCODE -ne 0) { throw 'Core bundle failed' }
+        "MOON_HOME=$install" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        "$install/bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
