@@ -16,7 +16,7 @@ deployment administrator remain trusted.
 | Plugin / bookkeeping or lifecycle | Versioned registration, serialized send/close, count validation | plugin_api_test.mbt, plugin_rejection_test.mbt and plugin/close tests; trusted plugins can still block synchronously or access host resources |
 | Files / collisions, growth, full disk | Preflight, retention bounds, safe failures | exporter_safety_test.mbt, Linux disk_full_test.mbt; no sandbox/quota/fsync guarantee |
 | Process / crash or shutdown | Bounded drain, loss accounting, volatile contract | Linux lifecycle workflow; Windows console events and deployment supervisors need separate qualification |
-| Supply chain / changed dependencies | Exact module policy, descriptors, pinned root actions/helper hashes, package checks | check_dependencies.mbtx/check_distribution.mbtx; manifest hashes are not package integrity, CVE review or full bootstrap attestation |
+| Supply chain / changed dependencies | Exact module policy, pinned module/toolchain archive hashes, descriptors and local package checks | check_dependencies.mbtx, setup-verified-moon, check_distribution.mbtx. Review of unpacked source, system libraries and CVEs is separate. |
 
 Unprefixed runtime tests above are in tests/integration; plugin_api_test is in
 core/component. Use synthetic reproductions, not customer telemetry/credentials.

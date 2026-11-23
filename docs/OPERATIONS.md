@@ -138,10 +138,11 @@ Shutdown stops admission, flushes batches and drains within shutdown_timeout_ms
 lose volatile queues, and retry after interruption can duplicate delivery.
 No exactly-once or durable at-least-once guarantee is provided. Timed shutdown
 is tested. Linux CI additionally checks SIGINT/SIGTERM with a pending record
-and a strong-kill/restart loss case; Windows console events and deployment-host
-supervisor behavior still need verification. On Linux, the async runtime retains
-the signal exit status after cleanup; a nonzero signal status alone does not
-mean flushing failed.
+and a strong-kill/restart loss case. An attached Windows console check sends
+Ctrl+Break to the Collector process group and confirms a pending record is
+written. Windows services and supervisors need their own shutdown qualification.
+On Windows and Linux, use the delivery evidence alongside the signal exit status.
+
 ## Conditional routing and self metrics
 
 After processing and batching, a routing pipeline writes one selected copy per

@@ -1,5 +1,10 @@
 # Local performance evidence
 
+The [separate process mixed-signal run](results/2026-11-23/README.md) measures
+Collector CPU and RSS independently, with three clients and two HTTP sinks.
+It runs a paced workload on one host. Use that page for its source revision,
+duration, counts and reproduction commands.
+
 This page retains historical measurements. Current dated matrix evidence and
 the older one-hour run's sampling limitation are in
 [2026-11-13 results](results/2026-11-13/README.md).

@@ -33,4 +33,5 @@ gRPC, YAML, profiles, durable queues, tail sampling, dashboard and distributed
 coordination are outside the current implementation. Long-duration production
 qualification remains separate from focused regressions and the explicitly
 dated synthetic load evidence recorded in [validation](docs/VALIDATION.md).
-Container/TLS templates require deployment verification on the target host.
+Container/TLS templates have a synthetic Linux CI check. Target hosts,
+certificate operations and deployment capacity require separate qualification.

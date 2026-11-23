@@ -1,8 +1,11 @@
 # Deployment trust boundaries
 
-These are reviewed templates, not a container certification or a published image.
-The Collector configuration is parsed in a focused regression; Nginx, TLS and
-Docker Compose startup have not been executed by this repository's CI. Run
+The templates have a [Linux CI smoke check](https://github.com/miik-su/MoonTelemetry/actions/runs/45182228428).
+It builds a local test image and checks Compose, a trusted synthetic TLS
+certificate, method/body limits, authentication, redacted delivery and shutdown
+flush. It extends the template's batch timeout to hold one synthetic record until
+stop. The evidence uses a GitHub runner, separate from target host qualification.
+Run
 `nginx -t` and `docker compose config` with your real paths/environment before
 using them, then test authentication, body limits and graceful stop on that host.
 

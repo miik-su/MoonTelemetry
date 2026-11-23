@@ -33,7 +33,7 @@ flowchart LR
 | Exporter | Debug、轮转 JSONL、OTLP HTTP JSON／Protobuf；重试、连接复用、总期限及逐目标计数 |
 | 条件路由 | 处理后按记录匹配，可发送给多个目标，同一目标去重，未匹配走显式兜底 |
 | 自身指标 | 可选独立 OTLP/HTTP 推送，包含累计计数和内存／连接 Gauge |
-| 运维／扩展 | live/ready、独立健康鉴权、预算及 RSS、导出耗时；插件 API v1、工厂和有界关闭 |
+| 运维／扩展 | live/ready、独立健康鉴权、预算及 RSS、导出耗时；插件 API v1、工厂和有界关闭，验证了 Windows 控制台 Ctrl+Break |
 
 HTTP 200 表示进入易失输入队列。过滤、目标队列溢出、导出失败仍可发生；重试可能重复。
 没有持久化、exactly-once、硬 RSS 上限或完整 OTLP 一致性认证。
@@ -81,7 +81,7 @@ moon run tools/check_quickstart.mbtx --target native
 - [普通示例](examples/collector.json)：保留正文，适合本地合成数据开发。
 - [严格隐私示例](examples/strict-security.json)：设置独立的 ingest／health token，遮盖正文并移除非允许属性。
 - [过滤示例](examples/filtered-collector.json)：只删除明确标记、开发环境中的低严重度日志；[规则说明](docs/FILTERING.md)。
-- [部署模板](docs/DEPLOYMENT.md)：TLS 代理、非特权用户和资源限额；容器／Nginx 运行资格尚未验证。
+- [部署模板](docs/DEPLOYMENT.md)：Linux CI 已验证 Compose 与 TLS 代理，目标主机需要单独验收。
 
 配置与插件为可信管理输入，Endpoint 校验不是 SSRF 沙箱；远程 HTTP 需可信 TLS 终止。
 逻辑预算与实际 RSS 分开观测；文件保留策略不是磁盘配额。
@@ -89,7 +89,8 @@ moon run tools/check_quickstart.mbtx --target native
 
 ## 验证与维护
 
-本轮维护与机器可读结果见 [0.1.4 验证页](docs/results/2026-11-22/README.md)。
+最新的独立进程、部署、控制台和依赖校验结果见 [2026-11-23 验证页](docs/results/2026-11-23/README.md)。
+条件路由与自身指标测试见 [0.1.4 验证页](docs/results/2026-11-22/README.md)。
 
 CI 对选定包、格式、生成接口、模型描述符、发行包和示例进行检查；独立工作流验证
 官方 Go Collector 互操作、覆盖反馈模糊测试与故障行为。**没有运行全量测试。**
