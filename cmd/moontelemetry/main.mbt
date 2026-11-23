@@ -1,6 +1,6 @@
 ///|
 async fn main {
-  @signal.set_global_cancellation_signals([SIGINT, SIGTERM])
+  @signal.set_global_cancellation_signals([SIGINT, SIGTERM, SIGBREAK])
   let args = @env.args()
   match @cli.parse(args[1:]) {
     Help =>
