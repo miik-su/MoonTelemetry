@@ -28,9 +28,14 @@ runs:
         if ($LASTEXITCODE -ne 0) { throw 'Compiler extraction failed' }
         tar -xf (Join-Path $download $assets[1].file) -C "$install/lib"
         if ($LASTEXITCODE -ne 0) { throw 'Core extraction failed' }
+        if ($env:RUNNER_OS -eq 'Linux') {
+          chmod -R u+x "$install/bin"
+          if ($LASTEXITCODE -ne 0) { throw 'Toolchain permissions setup failed' }
+        }
         $env:MOON_HOME = $install
         $env:PATH = "$install/bin" + [IO.Path]::PathSeparator + $env:PATH
-        moon -C "$install/lib/core" bundle --warn-list -a --all
+        $moon = if ($env:RUNNER_OS -eq 'Windows') { "$install/bin/moon.exe" } else { "$install/bin/moon" }
+        & $moon -C "$install/lib/core" bundle --warn-list -a --all
         if ($LASTEXITCODE -ne 0) { throw 'Core bundle failed' }
         "MOON_HOME=$install" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "$install/bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
