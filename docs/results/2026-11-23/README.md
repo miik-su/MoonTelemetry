@@ -2,7 +2,7 @@
 
 ## 独立进程
 
-Windows x64 / MSVC / Native，moonc 0.10.20+65efd5b93。
+北京时间 11 月 22 日采集。Windows x64 / MSVC / Native，moonc 0.10.20+65efd5b93。
 源码 `64e1786348c57b2a7bf334e400ac862bb04a700c`，干净工作树。
 Collector 是单独启动的进程。测试进程同时发送三种合成信号，并用两个独立 HTTP
 接收监听器核对输出。每个客户端请求完成后暂停 25 毫秒。
@@ -46,6 +46,9 @@ moon run tools/check_mixed_process.mbtx --target native
 
 另在干净工作区 `338a294771e89c3d7ca33daa4c204378ee9a2361` 完成 0.1.4
 [本地打包预检](distribution.raw.json)，核对 280 个归档条目及 CLI 版本。
+随后从 `b76c344e4c2096351ec05a419dafcb3d3f85aed3` 重新生成
+[候选归档](source-candidate.raw.json)。将 ZIP 解包到独立目录后，Native 编译检查通过，
+CLI 输出 `MoonTelemetry 0.1.4`。Mooncakes 发行保留到最后一步。
 
 模型测试使用固定合成样本，部署测试使用 GitHub Runner。目标环境的磁盘耗尽恢复、
 Windows 服务管理器、多小时负载与生产证书轮换仍需单独核对。本轮未运行全量测试。
