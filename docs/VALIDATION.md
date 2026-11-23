@@ -1,6 +1,7 @@
 # Validation records
 
-Latest maintenance evidence: [2026-11-22](results/2026-11-22/README.md).
+Latest maintenance evidence: [2026-11-23](results/2026-11-23/README.md).
+Routing and self metrics: [2026-11-22](results/2026-11-22/README.md).
 The [2026-11-19 evidence](results/2026-11-19/README.md) covers the 0.1.3 candidate.
 Each report retains its actual source revision. New documentation does not
 retag older measurements as current-version performance or certification.
@@ -91,11 +92,9 @@ moon run tools/check_dependencies.mbtx --target native
 ```
 
 [Linux coverage workflow passed](https://github.com/miik-su/MoonTelemetry/actions/runs/43366262332).
-Dependency checks enforce the three declared/resolved module versions, repository
-and license policy, including transitive imports. The CycloneDX file hashes
-manifests only; it does not attest complete package integrity or absence of CVEs.
-Root CI actions and compiler/core versions are pinned. Tagged transitive setup
-actions and missing enforced compiler/core archive checksums remain gaps.
+The 2026-11-13 CycloneDX snapshot hashes manifests only. The newer maintenance
+record verifies cached module archives and compiler/core downloads. See
+[integrity scope](UPSTREAM_ADAPTERS.md#integrity-scope) for remaining limits.
 
 ## Load, faults and limits
 
@@ -120,6 +119,6 @@ loss, not durable recovery. `/dev/full` exercises a low-level destination;
 service config correctly refuses device outputs. It does not simulate a whole
 deployment filesystem filling up.
 
-Multi-hour/day soak, container deployment, Windows console signals and sustained
-disk-exhaustion recovery still require qualification. The project remains
-experimental, with volatile queues and no exactly-once guarantee.
+Multi-hour/day soak, target-host deployment and sustained disk-exhaustion
+recovery still require qualification. Newer Linux Compose/TLS and Windows
+Ctrl+Break checks are scoped in the 2026-11-23 record.
