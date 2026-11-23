@@ -36,5 +36,16 @@ moon run tools/check_mixed_process.mbtx --target native
 | 依赖锁 | [CycloneDX](dependencies.cdx.json)。同一 `df6fc32` 源码核对三份缓存 ZIP 的 SHA-256、已安装 manifest 和传递导入。 |
 | 上游模型 | 核对 40 个描述符，6 项关键协议测试通过。在另一个检出中升级 protobuf 0.2.0，保留适配通过 6 项，删除 zigzag 适配时现有回归失败。[评估与依赖 PR 记录](../../UPSTREAM_ADAPTERS.md) |
 
+修复 Linux 解包后的执行权限后，源码 `0c519a205c1f344dac721be4d5b97195a800b769`
+通过 [Compose/TLS](https://github.com/miik-su/MoonTelemetry/actions/runs/45183294112)、
+[Linux 生命周期](https://github.com/miik-su/MoonTelemetry/actions/runs/45183294129) 和
+[双平台互操作](https://github.com/miik-su/MoonTelemetry/actions/runs/45183294370)。
+这批 CI 在执行前核对编译器和 core 归档。首次引入锁的
+[`df6fc32` 运行](https://github.com/miik-su/MoonTelemetry/actions/runs/45182925669)
+保留 Linux 执行权限失败记录。
+
+另在干净工作区 `338a294771e89c3d7ca33daa4c204378ee9a2361` 完成 0.1.4
+[本地打包预检](distribution.raw.json)，核对 280 个归档条目及 CLI 版本。
+
 模型测试使用固定合成样本，部署测试使用 GitHub Runner。目标环境的磁盘耗尽恢复、
 Windows 服务管理器、多小时负载与生产证书轮换仍需单独核对。本轮未运行全量测试。

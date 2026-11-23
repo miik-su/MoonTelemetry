@@ -7,9 +7,9 @@ on:
         default: '1024'
         required: true
   push:
-    paths: ['core/**', 'config/**', 'processor/**', 'receiver/**', 'examples/filtered-collector.json', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
+    paths: ['.github/actions/setup-verified-moon/**', 'tools/dependency-policy.json', 'core/**', 'config/**', 'processor/**', 'receiver/**', 'examples/filtered-collector.json', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
   pull_request:
-    paths: ['core/**', 'config/**', 'processor/**', 'receiver/**', 'examples/filtered-collector.json', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
+    paths: ['.github/actions/setup-verified-moon/**', 'tools/dependency-policy.json', 'core/**', 'config/**', 'processor/**', 'receiver/**', 'examples/filtered-collector.json', 'tests/fuzzcase/**', 'tests/fuzz-corpus/**', 'tools/*fuzz*.mbtx', '.github/workflows/fuzz.yml']
 permissions:
   contents: read
 jobs:
