@@ -1,0 +1,189 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/http",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+let ingest_token = "synthetic-ingest-token"
+
+///|
+let health_token = "synthetic-health-token"
+
+///|
+let image = "moontelemetry-deployment-check:local"
+
+///|
+let project = "moontelemetry-deployment-check"
+
+///|
+async fn checked(
+  name : String,
+  args : Array[String],
+  environment~ : Map[String,String] = Map([]),
+  output_stderr~ : Bool = false,
+) -> String {
+  let (code, stdout, stderr) = @process.collect_output(name, args[:], extra_env=environment)
+  if code != 0 {
+    println(stderr.text())
+    abort("failed: " + name + " " + args[0])
+  }
+  (if output_stderr { stderr.text() } else { stdout.text() }).trim().to_owned()
+}
+
+///|
+async fn compose(file : String, args : Array[String]) -> String {
+  checked("docker", ["compose", "-p", project, "-f", file] + args, environment={
+    "MOONTELEMETRY_IMAGE": image,
+    "MOONTELEMETRY_INGEST_TOKEN": ingest_token,
+    "MOONTELEMETRY_HEALTH_TOKEN": health_token,
+  })
+}
+
+///|
+async fn curl_status(ca : String, args : Array[String]) -> String {
+  checked("curl", [
+    "--silent", "--show-error", "--noproxy", "*", "--max-time", "5",
+    "--cacert", ca, "--resolve", "telemetry.example.invalid:8443:127.0.0.1",
+    "--output", "/dev/null", "--write-out", "%{http_code}",
+  ] + args)
+}
+
+///|
+async fn wait_health() -> Unit {
+  @async.with_timeout(15000, async fn() {
+    while true {
+      let ready = try {
+        let client = @http.Client("http://127.0.0.1:4318")
+        defer client.close()
+        let code = client.get("/health/ready", extra_headers=Map([
+          (@http.CaseInsensitiveString("Authorization"), "Bearer " + health_token),
+        ])).code
+        let _ = client.read_all()
+        code == 200
+      } catch { _ => false }
+      if ready { break }
+      @async.sleep(100)
+    }
+  })
+}
+
+///|
+async fn main {
+  assert_eq(@env.get_env_var("RUNNER_OS"), Some("Linux"), msg="dedicated Linux runner required")
+  let folder = @fs.realpath("_build") + "/deployment-check"
+  @fs.mkdir(folder, recursive=true, allow_exist=true)
+  let report = folder + "/result.json"
+  if @fs.exists(report) { @fs.remove(report) }
+  let prepared = @fs.tmpdir(prefix="moontelemetry-deployment-")
+  defer @fs.rmdir(prepared, recursive=true)
+  let compose_file = prepared + "/compose.yaml"
+  let data = prepared + "/data"
+  let _ = checked("chmod", ["755", prepared])
+  @fs.mkdir(data)
+  // The transient data mount is writable by the template's non-root UID.
+  // The isolated CI runner contains only synthetic data.
+  let _ = checked("chmod", ["777", data])
+  @fs.write_file(compose_file, @fs.read_file("examples/deployment/compose.yaml").text())
+  let config = @fs.read_file("examples/deployment/collector.json").text()
+  assert_true(config.contains("\"timeout_ms\": 100,"))
+  // Keep a known pending batch so this test can prove stop flushes it.
+  @fs.write_file(prepared + "/collector.json", config.replace(old="\"timeout_ms\": 100,", new="\"timeout_ms\": 60000,"))
+  let base = "_build/native/release/build/cmd/moontelemetry/moontelemetry"
+  let binary = if @fs.exists(base + ".exe") { base + ".exe" } else { base }
+  let _ = checked("cp", [binary, prepared + "/moontelemetry"])
+  let _ = checked("cp", ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", prepared])
+  @fs.write_file(prepared + "/Dockerfile",
+    "FROM ubuntu:24.04\nRUN apt-get update && apt-get install -y --no-install-recommends libssl3t64 ca-certificates && rm -rf /var/lib/apt/lists/*\nCOPY moontelemetry /usr/local/bin/moontelemetry\nCOPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/moontelemetry/\n")
+  // Build only the binary and notices. No certificates or runtime data enter the context.
+  let _ = checked("docker", ["build", "--tag", image, prepared])
+  let image_id = checked("docker", ["image", "inspect", "--format", "{{.Id}}", image])
+  let cert = prepared + "/server.crt"
+  let key = prepared + "/server.key"
+  let _ = checked("openssl", [
+    "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+    "-subj", "/CN=telemetry.example.invalid", "-addext", "subjectAltName=DNS:telemetry.example.invalid",
+    "-keyout", key, "-out", cert,
+  ])
+  let nginx_config = prepared + "/nginx.conf"
+  let nginx = @fs.read_file("examples/deployment/nginx.conf").text()
+    .replace(old="/etc/nginx/tls/server.crt", new=cert)
+    .replace(old="/etc/nginx/tls/server.key", new=key)
+    .replace(old="http {", new="http {\n client_body_temp_path " + prepared + "/body;\n proxy_temp_path " + prepared + "/proxy;\n fastcgi_temp_path " + prepared + "/fastcgi;\n uwsgi_temp_path " + prepared + "/uwsgi;\n scgi_temp_path " + prepared + "/scgi;")
+  @fs.write_file(nginx_config, "pid " + prepared + "/nginx.pid;\nerror_log stderr;\n" + nginx)
+  let _ = checked("nginx", ["-p", prepared, "-t", "-c", nginx_config])
+  let _ = compose(compose_file, ["config", "--quiet"])
+  let nginx_log = @process.redirect_to_file(folder + "/nginx.log", shared=true)
+  defer nginx_log.close()
+  defer @async.protect_from_cancel(async fn() {
+    let _ = compose(compose_file, ["down", "--timeout", "5"])
+  })
+  defer @async.protect_from_cancel(async fn() {
+    let logs = compose(compose_file, ["logs", "--no-color"])
+    @fs.write_file(folder + "/collector.log", logs)
+  })
+  let _ = compose(compose_file, ["up", "-d", "--no-build", "--pull", "never"])
+  wait_health()
+  let success = @async.with_task_group(group => {
+    let proxy = @process.spawn(group, "nginx", ["-p", prepared, "-c", nginx_config, "-g", "daemon off;"],
+      stdout=nginx_log, stderr=nginx_log, cancel_handler=@process.graceful_cancel(timeout=2000))
+    defer proxy.cancel()
+    let url = "https://telemetry.example.invalid:8443"
+    @async.with_timeout(10000, async fn() {
+      while true {
+        let ready = try {
+          curl_status(cert, [url + "/health/ready"]) == "404"
+        } catch { _ => false }
+        if ready { break }
+        @async.sleep(100)
+      }
+    })
+    let endpoint = url + "/v1/logs"
+    let payload : Json = {
+      "resourceLogs": [{ "scopeLogs": [{ "logRecords": [
+        { "body": { "stringValue": "synthetic-private-body" },
+          "attributes": [{ "key": "secret", "value": { "stringValue": "synthetic-private-value" } }] },
+      ] }] }],
+    }
+    let body = prepared + "/synthetic.json"
+    @fs.write_file(body, payload.stringify())
+    let large = prepared + "/large.json"
+    @fs.write_file(large, String::make(1048577, ' '))
+    let post = ["--header", "Content-Type: application/json"]
+    let auth = ["--header", "Authorization: Bearer " + ingest_token]
+    let wrong = ["--header", "Authorization: Bearer " + health_token]
+    assert_eq(curl_status(cert, [endpoint]), "403")
+    assert_eq(curl_status(cert, post + ["--data-binary", "@" + body, endpoint]), "401")
+    assert_eq(curl_status(cert, post + wrong + ["--data-binary", "@" + body, endpoint]), "401")
+    assert_eq(curl_status(cert, post + auth + ["--data-binary", "@" + large, endpoint]), "413")
+    assert_eq(curl_status(cert, post + auth + ["--data-binary", "@" + body, endpoint]), "200")
+    assert_false(@fs.exists(data + "/telemetry.jsonl"))
+    let _ = compose(compose_file, ["stop", "--timeout", "15"])
+    let logs = compose(compose_file, ["logs", "--no-color"])
+    assert_true(logs.contains("MoonTelemetry stopped:"))
+    let delivered = @fs.read_file(data + "/telemetry.jsonl").text()
+    assert_true(delivered.contains("[REDACTED]"))
+    assert_false(delivered.contains("synthetic-private"))
+    proxy.cancel()
+    let _ = proxy.wait()
+    true
+  })
+  let revision = checked("git", ["rev-parse", "HEAD"])
+  let nginx_version = checked("nginx", ["-v"], output_stderr=true)
+  let compose_version = checked("docker", ["compose", "version", "--short"])
+  let result : Json = {
+    "schemaVersion": 1, "sourceRevision": Json::string(revision),
+    "platform": "Linux", "fixtureOnly": true, "imageId": Json::string(image_id),
+    "nginxBuild": Json::string(nginx_version), "composeVersion": Json::string(compose_version),
+    "batchTimeoutOverrideMs": 60000, "verifiedTls": true, "privateHealth": true,
+    "methodRestricted": true, "requiresIngestToken": true, "bodyLimit": true,
+    "redactedFileDelivery": true, "composeStopDrained": true, "passed": Json::boolean(success),
+  }
+  @fs.write_file(report, result.stringify() + "\n")
+  println("Verified Compose, trusted TLS, method and body limits, authentication, redaction and stop")
+}
