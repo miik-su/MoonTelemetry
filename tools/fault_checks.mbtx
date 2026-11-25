@@ -12,8 +12,69 @@ import {
 ----
 
 ///|
-fn config(port : Int, file : String) -> Json {
-  { "receivers":{ "otlp":{ "port":Json::number(port.to_double()) } }, "processors":{ "batch":{ "size":1024,"timeout_ms":600000,"max_bytes":65536 } }, "exporters":{ "file":{ "path":Json::string(file) } }, "service":{ "queue_bytes":65536,"shutdown_timeout_ms":2000,"pipelines":{ "logs":{ "receivers":["otlp"],"processors":["batch"],"exporters":["file"] } } } }
+fn config(port : Int, file : String, batch_timeout_ms~ : Int = 600000) -> Json {
+  { "receivers":{ "otlp":{ "port":Json::number(port.to_double()) } }, "processors":{ "batch":{ "size":1024,"timeout_ms":Json::number(batch_timeout_ms.to_double()),"max_bytes":65536 } }, "exporters":{ "file":{ "path":Json::string(file) } }, "service":{ "queue_bytes":65536,"shutdown_timeout_ms":2000,"pipelines":{ "logs":{ "receivers":["otlp"],"processors":["batch"],"exporters":["file"] } } } }
+}
+
+///|
+async fn post_log(url : String, body : String) -> Unit {
+  let client = @http.Client(url)
+  defer client.close()
+  let payload : Json = { "resourceLogs":[{ "scopeLogs":[{ "logRecords":[{ "body":{ "stringValue":Json::string(body) } }] }] }] }
+  assert_eq(client.post("/v1/logs",payload,extra_headers=Map([(@http.CaseInsensitiveString("Content-Type"),"application/json")])).code,200)
+  let _ = client.read_all()
+}
+
+///|
+async fn wait_output(url : String, dropped : String, delivered : String) -> Unit {
+  @async.with_timeout(10000, async fn() {
+    for ;; {
+      if health(url) is Object(status) && status.get("pipelines") is Some(Array([Object(pipeline)])) &&
+        pipeline.get("outputs") is Some(Array([Object(output)])) &&
+        output.get("dropped") == Some(Json::string(dropped)) &&
+        output.get("delivered") == Some(Json::string(delivered)) {
+        break
+      }
+      @async.sleep(20)
+    }
+  })
+}
+
+///|
+async fn verify_full_volume(executable : String, folder : String) -> Json {
+  let volume = @fs.tmpdir(prefix="moontelemetry-enospc-")
+  defer @fs.rmdir(volume)
+  assert_eq(@process.run("sudo", ["-n","mount","-t","tmpfs","-o","size=64k,mode=0777","tmpfs",volume]),0)
+  defer @async.protect_from_cancel(async fn() {
+    assert_eq(@process.run("sudo", ["-n","umount",volume]),0)
+  })
+  let filler = volume + "/fill"
+  @fs.write_file(filler, String::make(65536, '0'))
+  let file = volume + "/telemetry.jsonl"
+  let reserve = @http.Server(@socket.Addr::new(2130706433U,0))
+  let port = reserve.addr.port()
+  reserve.close()
+  let config_path = folder + "/volume-recovery.json"
+  @fs.write_file(config_path,config(port,file,batch_timeout_ms=20).stringify())
+  let log = @process.redirect_to_file(folder + "/volume-recovery.log",shared=true)
+  defer log.close()
+  @async.with_task_group(group => {
+    let child = @process.spawn(group,executable,["run","--config",config_path],stdout=log,stderr=log,cancel_handler=@process.graceful_cancel(timeout=5000))
+    defer child.cancel()
+    let url = "http://127.0.0.1:\{port}"
+    wait_for(url,false)
+    post_log(url,"synthetic-when-full")
+    wait_output(url,"1","0")
+    @fs.remove(filler)
+    post_log(url,"synthetic-after-release")
+    wait_output(url,"1","1")
+    let data = @fs.read_file(file).text()
+    assert_false(data.contains("synthetic-when-full"))
+    assert_true(data.contains("synthetic-after-release"))
+    child.cancel()
+    assert_eq(child.wait(), -@signal.SIGTERM.to_int())
+  })
+  { "case":"bounded_tmpfs_enospc_recovery", "volumeBytes":65536, "droppedRecords":1, "deliveredAfterSpaceReleased":1 }
 }
 
 ///|
@@ -68,11 +129,7 @@ async fn main {
       let url = "http://127.0.0.1:\{port}"
       wait_for(url,false)
       if name!="restart" {
-        let client = @http.Client(url)
-        defer client.close()
-        let payload : Json = { "resourceLogs":[{ "scopeLogs":[{ "logRecords":[{ "body":{ "stringValue":Json::string("synthetic-"+name) } }] }] }] }
-        assert_eq(client.post("/v1/logs",payload,extra_headers=Map::from_array([(@http.CaseInsensitiveString("Content-Type"),"application/json")])).code,200)
-        let _ = client.read_all()
+        post_log(url,"synthetic-"+name)
         wait_for(url,true)
       }
       assert_false(@fs.exists(file),msg="record must still be in volatile batch before termination")
@@ -90,6 +147,9 @@ async fn main {
       } else { assert_false(@fs.exists(file)) }
       results.push(({ "case":Json::string(name),"exitCode":Json::number(code.to_double()),"gracefulFlushVerified":Json::boolean(graceful),"acknowledgedBeforeTermination":Json::number(if name=="restart" { 0.0 } else { 1.0 }),"volatileRecordRecovered":Json::boolean(graceful) } : Json))
     })
+  }
+  if !windows && @env.get_env_var("MOONTELEMETRY_TEST_TMPFS") == Some("1") {
+    results.push(verify_full_volume(executable,folder))
   }
   let report : Json = { "schemaVersion":1,"kind":"native_lifecycle_fault_checks","platform":Json::string(if windows { "Windows" } else { "Linux" }),"sourceRevision":Json::string(@env.get_env_var("GITHUB_SHA").unwrap_or("local-working-tree")),"command":"moon build cmd/moontelemetry --target native --release; moon run tools/fault_checks.mbtx --target native","cases":Json::array(results),"limits":"one synthetic pending record per signal check; Windows requires an attached console for Ctrl+Break; abrupt restart intentionally demonstrates volatile loss" }
   @fs.write_file(folder+"/result.json",report.stringify()+"\n")

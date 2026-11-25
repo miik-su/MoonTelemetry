@@ -13,6 +13,8 @@ jobs:
       - run: moon test tests/integration/disk_full_test.mbt --target native --verbose
       - run: moon build cmd/moontelemetry --target native --release
       - run: moon run tools/fault_checks.mbtx --target native
+        env:
+          MOONTELEMETRY_TEST_TMPFS: '1'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
