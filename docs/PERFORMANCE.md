@@ -5,6 +5,17 @@ Collector CPU and RSS independently, with three clients and two HTTP sinks.
 It runs a paced workload on one host. Use that page for its source revision,
 duration, counts and reproduction commands.
 
+For longer runs, set `MOONTELEMETRY_MIXED_SECONDS`. The local helper accepts up
+to 86,400 seconds and the manual GitHub workflow up to 14,400 seconds. New
+reports include sampled input/output queue lengths, retained output bytes,
+logical/request budget use and Collector RSS. Samples are taken about once a
+second for short runs and once every five seconds at 600 seconds or longer.
+The configured pause rate applies per client after each completed request.
+
+When testing a second harness concurrently, choose separate
+`MOONTELEMETRY_MIXED_RESULT_DIR` and `--target-dir` paths. Report the shared-host
+load and use separate hosts for production capacity qualification.
+
 This page retains historical measurements. Current dated matrix evidence and
 the older one-hour run's sampling limitation are in
 [2026-11-13 results](results/2026-11-13/README.md).

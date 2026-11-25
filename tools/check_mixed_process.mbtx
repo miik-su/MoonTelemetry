@@ -91,6 +91,40 @@ fn decimal(map : Map[String,Json], key : String) -> Int64 {
 }
 
 ///|
+fn queue_number(map : Map[String,Json], key : String) -> Int64 {
+  guard map.get(key) is Some(Number(value,..)) else { abort("missing queue gauge: " + key) }
+  value.to_int64()
+}
+
+///|
+fn collect_sample(status : Json, elapsed : Int64) -> Json {
+  let root = object(status)
+  guard root.get("pipelines") is Some(Array(pipelines)) else { abort("missing pipelines") }
+  let mut input_batches = 0L
+  let mut output_batches = 0L
+  let mut output_bytes = 0L
+  for value in pipelines {
+    let pipe = object(value)
+    input_batches += queue_number(object(pipe["input"]), "queuedBatches")
+    guard pipe.get("outputs") is Some(Array(outputs)) else { abort("missing outputs") }
+    for output in outputs {
+      let queue = object(output)
+      output_batches += queue_number(queue, "queuedBatches")
+      output_bytes += queue_number(queue, "retainedBytes")
+    }
+  }
+  {
+    "elapsedMs": Json::number(elapsed.to_double()),
+    "rssBytes": Json::string(decimal(root, "rssBytes").to_string()),
+    "logicalMemoryUsed": Json::string(decimal(root, "logicalMemoryUsed").to_string()),
+    "requestMemoryUsed": Json::string(decimal(root, "requestMemoryUsed").to_string()),
+    "inputQueuedBatches": Json::number(input_batches.to_double()),
+    "outputQueuedBatches": Json::number(output_batches.to_double()),
+    "outputRetainedBytes": Json::number(output_bytes.to_double()),
+  }
+}
+
+///|
 fn config(port : Int, ports : Array[Int]) -> Json {
   let pipelines : Map[String,Json] = Map([])
   for signal in signals {
@@ -116,7 +150,8 @@ fn config(port : Int, ports : Array[Int]) -> Json {
 async fn main {
   let seconds = @string.parse_int(@env.get_env_var("MOONTELEMETRY_MIXED_SECONDS").unwrap_or("5"))
   let pause = @string.parse_int(@env.get_env_var("MOONTELEMETRY_MIXED_PAUSE_MS").unwrap_or("25"))
-  assert_true(seconds >= 1 && seconds <= 86400)
+  let max_seconds = if @env.get_env_var("GITHUB_ACTIONS") == Some("true") { 14400 } else { 86400 }
+  assert_true(seconds >= 1 && seconds <= max_seconds, msg="load duration exceeds this environment's limit")
   assert_true(pause >= 1 && pause <= 1000)
   let revision = command("git", ["rev-parse", "HEAD"])
   let dirty = !command("git", ["status", "--porcelain"]).is_empty()
@@ -125,8 +160,9 @@ async fn main {
   assert_true(@fs.exists(cli), msg="build cmd/moontelemetry in native release mode first")
   let folder = @fs.tmpdir(prefix="moontelemetry-mixed-")
   defer @fs.rmdir(folder, recursive=true)
-  let result = "_build/mixed-process/result.json"
-  @fs.mkdir("_build/mixed-process", recursive=true, allow_exist=true)
+  let reports = @env.get_env_var("MOONTELEMETRY_MIXED_RESULT_DIR").unwrap_or("_build/mixed-process")
+  let result = reports + "/result.json"
+  @fs.mkdir(reports, recursive=true, allow_exist=true)
   if @fs.exists(result) { @fs.remove(result) }
   let reserve = @http.Server(@socket.Addr::new(2130706433U, 0))
   let port = reserve.addr.port()
@@ -146,9 +182,10 @@ async fn main {
   assert_true(sizes.all(n => n > 0))
   let headers = Map::from_array([(@http.CaseInsensitiveString("Content-Type"), "application/json")])
   @fs.write_file(folder + "/config.json", config(port, sinks.map(s => s.addr.port())).stringify())
-  let log = @process.redirect_to_file("_build/mixed-process/collector.log", shared=true)
+  let log = @process.redirect_to_file(reports + "/collector.log", shared=true)
   defer log.close()
   let samples = []
+  let sample_every_ms = if seconds >= 600 { 5000 } else { 1000 }
   let start_cpu = [0L]
   let end_cpu = [0L]
   let actual_ms = [0L]
@@ -187,9 +224,9 @@ async fn main {
     @async.with_task_group(load => {
       let sampler = load.spawn(async fn() {
         while @async.now() < deadline {
-          let rss = decimal(object(health(url)), "rssBytes")
-          samples.push(({ "elapsedMs": Json::number((@async.now() - started).to_double()), "rssBytes": Json::string(rss.to_string()) } : Json))
-          @async.sleep(1000)
+          let status = health(url)
+          samples.push(collect_sample(status, @async.now() - started))
+          @async.sleep(sample_every_ms)
         }
       })
       defer sampler.cancel()
@@ -253,7 +290,9 @@ async fn main {
     "loadElapsedMs": Json::number(actual_ms[0].to_double()), "pausePerClientMs": Json::number(pause.to_double()),
     "signals": signals, "requests": requests, "acceptedRecords": accepted, "rejectedRequests": rejected,
     "transportOrResponseErrors": errors, "sinkDeliveredRecords": counts,
-    "collectorCpuMs": Json::string((end_cpu[0] - start_cpu[0]).to_string()), "collectorRssSamples": Json::array(samples),
+    "collectorCpuMs": Json::string((end_cpu[0] - start_cpu[0]).to_string()),
+    "sampleIntervalMs": Json::number(sample_every_ms.to_double()),
+    "collectorRssSamples": Json::array(samples),
     "healthAfterDelivery": final_health[0], "outboundConservationVerified": Json::boolean(drained_ok[0]),
     "passed": Json::boolean(success),
   }
