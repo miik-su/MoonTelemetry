@@ -16,6 +16,15 @@ When testing a second harness concurrently, choose separate
 `MOONTELEMETRY_MIXED_RESULT_DIR` and `--target-dir` paths. Report the shared-host
 load and use separate hosts for production capacity qualification.
 
+For local synthetic qualification, use a clean dedicated checkout and run
+`moon run tools/run_local_qualification.mbtx --target native`. It runs a
+four-hour profile with a 10 ms per-client pause, then a 24-hour profile with a
+25 ms pause. The long profile starts only after the first profile succeeds.
+Reports and stage status stay in `_build/local-qualification/`. Keep the host
+awake for both runs. These profiles exercise paced loopback delivery and
+resource behavior for the tested source. Live deployment acceptance depends on
+the actual host, network, storage and supervisor.
+
 This page retains historical measurements. Current dated matrix evidence and
 the older one-hour run's sampling limitation are in
 [2026-11-13 results](results/2026-11-13/README.md).

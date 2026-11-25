@@ -1,0 +1,102 @@
+----
+import {
+  "moonbitlang/async@0.22.5",
+  "moonbitlang/async@0.22.5/fs",
+  "moonbitlang/async@0.22.5/process",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+----
+
+///|
+async fn git(args : Array[String]) -> String {
+  let (code, output, _) = @process.collect_output("git", args[:], no_console_window=true)
+  assert_eq(code, 0, msg="cannot determine checkout provenance")
+  output.text().trim().to_owned()
+}
+
+///|
+async fn write_state(
+  root : String,
+  revision : String,
+  results : Array[Json],
+) -> Unit {
+  let state : Json = {
+    "schemaVersion": 1,
+    "sourceRevision": Json::string(revision),
+    "kind": "sequential_local_synthetic_qualification",
+    "stages": Json::array(results),
+  }
+  let temporary = root + "/state.tmp"
+  @fs.write_file(temporary, state.stringify() + "\n")
+  @fs.rename(temporary, root + "/state.json", replace=true)
+}
+
+///|
+async fn main {
+  assert_false(@env.get_env_var("GITHUB_ACTIONS") == Some("true"), msg="run this suite on a dedicated local checkout")
+  let home = @env.get_env_var("MOON_HOME").unwrap_or("")
+  let moon = if home.is_empty() {
+    "moon"
+  } else if @fs.exists(home + "/bin/moon.exe") {
+    home + "/bin/moon.exe"
+  } else {
+    home + "/bin/moon"
+  }
+  let revision = git(["rev-parse", "HEAD"])
+  assert_eq(git(["status", "--porcelain"]), "", msg="qualification requires a clean, unchanged checkout")
+  let root = "_build/local-qualification"
+  @fs.mkdir(root, recursive=true, allow_exist=true)
+  assert_false(@fs.exists(root + "/state.json"), msg="qualification already exists in this checkout")
+  assert_eq(@process.run(moon, ["build", "cmd/moontelemetry", "--target", "native", "--release"], no_console_window=true), 0)
+  let cases = [("mixed-4h", 14400, 10), ("mixed-24h", 86400, 25)]
+  let stages = []
+  for (name, seconds, pause) in cases {
+    stages.push(({
+      "name": Json::string(name),
+      "requestedSeconds": Json::number(seconds.to_double()),
+      "pausePerClientMs": Json::number(pause.to_double()),
+      "status": "pending",
+    } : Json))
+  }
+  write_state(root, revision, stages)
+  for i, stage in cases {
+    let (name, seconds, pause) = stage
+    assert_eq(git(["rev-parse", "HEAD"]), revision)
+    assert_eq(git(["status", "--porcelain"]), "")
+    guard stages[i] is Object(details) else { abort("invalid stage") }
+    details["status"] = "running"
+    details["startedAtUnixMs"] = Json::string(@async.now().to_string())
+    write_state(root, revision, stages)
+    let output = root + "/" + name
+    let code = @process.run(
+      moon,
+      ["run", "tools/check_mixed_process.mbtx", "--target", "native"],
+      extra_env={
+        "MOONTELEMETRY_MIXED_SECONDS": seconds.to_string(),
+        "MOONTELEMETRY_MIXED_PAUSE_MS": pause.to_string(),
+        "MOONTELEMETRY_MIXED_RESULT_DIR": output,
+      },
+      no_console_window=true,
+    )
+    let report = output + "/result.json"
+    let valid = if code == 0 && @fs.exists(report) {
+      let parsed = @json.parse(@fs.read_file(report).text())
+      parsed is Object(r) &&
+      r.get("sourceRevision") == Some(Json::string(revision)) &&
+      r.get("workingTreeDirty") == Some(Json::boolean(false)) &&
+      r.get("requestedSeconds") == Some(Json::number(seconds.to_double())) &&
+      r.get("passed") == Some(Json::boolean(true))
+    } else {
+      false
+    }
+    details["status"] = if valid { "passed" } else { "failed" }
+    details["finishedAtUnixMs"] = Json::string(@async.now().to_string())
+    details["exitCode"] = Json::number(code.to_double())
+    if @fs.exists(report) {
+      details["report"] = Json::string(report)
+    }
+    write_state(root, revision, stages)
+    assert_true(valid, msg="qualification stage failed: " + name)
+  }
+}
