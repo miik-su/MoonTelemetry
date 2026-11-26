@@ -5,6 +5,8 @@
 发布身份须具有该命名空间的权限。已固定源码基线 v0.1.2 指向 7e284fa。
 版本可用性以 Mooncakes 查询为准。
 当前候选的标签、关键验证和待发布项见[发布候选核对](RELEASE_0.1.4.md)。
+GitHub 源码已正式发布为 [v0.1.4](https://github.com/miik-su/MoonTelemetry/releases/tag/v0.1.4)。
+Mooncakes 0.1.4 仍待完成注册表授权，独立安装结果待发布后验证。
 
 ## 从源码运行
 

@@ -1,8 +1,12 @@
 # 0.1.4 发布候选核对
 
-源码标签 [v0.1.4-rc.1](https://github.com/miik-su/MoonTelemetry/tree/v0.1.4-rc.1)
-对应 `b76c344e4c2096351ec05a419dafcb3d3f85aed3`。模块和 CLI 版本为 0.1.4。
-GitHub Release 和 Mooncakes 正式发行均待完成。
+正式 [GitHub Release v0.1.4](https://github.com/miik-su/MoonTelemetry/releases/tag/v0.1.4)
+于 2026-11-26 发布，标签指向 `69fdbb66904b91ed289dafed1faa1ff2a1155b88`。
+模块和 CLI 版本均为 0.1.4。
+候选 [v0.1.4-rc.1](https://github.com/miik-su/MoonTelemetry/tree/v0.1.4-rc.1)
+仍指向 `b76c344e4c2096351ec05a419dafcb3d3f85aed3`。
+Mooncakes 预检已通过源码与解包编译检查，注册表要求使用有 `miik-su` 命名空间
+权限的登录。模块仍未发布，独立调用方的注册表安装验证待发布后执行。
 
 | 原计划验收项 | 已核对的工作与证据 |
 | --- | --- |
@@ -13,6 +17,11 @@ GitHub Release 和 Mooncakes 正式发行均待完成。
 | M05 关键 CI | 候选 [关键检查](https://github.com/miik-su/MoonTelemetry/actions/runs/45183864638)、[官方 Collector 互操作](https://github.com/miik-su/MoonTelemetry/actions/runs/45183864546)、[生命周期](https://github.com/miik-su/MoonTelemetry/actions/runs/45183864547)、[固定语料和变异回归](https://github.com/miik-su/MoonTelemetry/actions/runs/45183864581)通过。 |
 | M06 归档 | 同一候选的[打包结果](results/2026-11-23/source-candidate.raw.json)。ZIP 独立解包后检查通过，CLI 输出 0.1.4。 |
 | M08 源码候选 | 已固定 Git 标签。长期负载、主机验证和注册表状态分别记录。 |
+
+正式源码的 [Windows/Linux 关键 CI](https://github.com/miik-su/MoonTelemetry/actions/runs/45807575615)、
+[官方 Collector 互操作](https://github.com/miik-su/MoonTelemetry/actions/runs/45807575796)
+和 [Linux 生命周期](https://github.com/miik-su/MoonTelemetry/actions/runs/45807575631) 均通过。
+正式源码的归档检查包含必要声明、路径排除和 CLI 版本一致性，实际归档已解包并通过 Native 检查。
 
 ## 长期负载与部署
 
