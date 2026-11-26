@@ -1,6 +1,7 @@
 # Validation records
 
-Latest recovery checks: [2026-11-25](results/2026-11-25/README.md).
+Local 24-hour mixed-signal qualification: [2026-11-26](results/2026-11-26/README.md).
+Recovery and one-hour/four-hour checks: [2026-11-25](results/2026-11-25/README.md).
 Mixed signals, deployment and toolchain: [2026-11-23](results/2026-11-23/README.md).
 Routing and self metrics: [2026-11-22](results/2026-11-22/README.md).
 The [2026-11-19 evidence](results/2026-11-19/README.md) covers the 0.1.3 candidate.
@@ -120,6 +121,7 @@ loss, not durable recovery. `/dev/full` exercises a low-level destination;
 service config correctly refuses device outputs. It does not simulate a whole
 deployment filesystem filling up.
 
-Multi-hour/day soak, target-host deployment and sustained disk-exhaustion
-recovery still require qualification. Newer Linux Compose/TLS and Windows
-Ctrl+Break checks are scoped in the 2026-11-23 record.
+Target-host deployment and sustained disk-exhaustion recovery still require
+qualification for those environments. The 2026-11-26 record covers 24-hour
+synthetic loopback delivery; the 2026-11-23 record covers Compose/TLS and
+Windows Ctrl+Break in their test environments.

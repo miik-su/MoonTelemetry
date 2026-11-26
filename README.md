@@ -89,7 +89,8 @@ moon run tools/check_quickstart.mbtx --target native
 
 ## 验证与维护
 
-最新的独立进程、部署、控制台和依赖校验结果见 [2026-11-23 验证页](docs/results/2026-11-23/README.md)。
+[24 小时本机混合负载](docs/results/2026-11-26/README.md)记录三类信号的逐目标送达量和资源采样。
+[部署、控制台和依赖校验](docs/results/2026-11-23/README.md)另有按提交保存的验证证据。
 条件路由与自身指标测试见 [0.1.4 验证页](docs/results/2026-11-22/README.md)。
 
 CI 对选定包、格式、生成接口、模型描述符、发行包和示例进行检查；独立工作流验证
