@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "kind": "published_module_consumer_check",
+  "date": "2026-11-28",
+  "module": "miik-su/moontelemetry",
+  "version": "0.1.4",
+  "sourceRevision": "69fdbb66904b91ed289dafed1faa1ff2a1155b88",
+  "githubTag": "v0.1.4",
+  "platform": "Windows",
+  "target": "native",
+  "compiler": "0.10.20+65efd5b93",
+  "publishHttpStatus": 200,
+  "publishedArchiveSha256": "0e0766429ba4bd25027d340e2c4c07159172b229d134b1f5b63f9c09973a5cde",
+  "downloadedArchiveMatchesPublished": true,
+  "commands": [
+    "moon add miik-su/moontelemetry@0.1.4",
+    "moon tree",
+    "moon run . --target native"
+  ],
+  "resolvedFromRegistry": true,
+  "consumerOutput": "Verified 1 log record via OTLP protobuf roundtrip",
+  "passed": true
+}

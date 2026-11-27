@@ -12,7 +12,7 @@
 | 正式交付 | [GitHub Release v0.1.4](https://github.com/miik-su/MoonTelemetry/releases/tag/v0.1.4)，源码 `69fdbb66904b91ed289dafed1faa1ff2a1155b88` |
 | 自查基线 | `26ac7f140fa2935ea0626f5c307567e5412ec831`，2026-11-27 本地 Native 检查、四个关键包 55 项测试和编解码示例通过 |
 | CI | 同一自查基线的 [Windows/Linux 关键检查](https://github.com/miik-su/MoonTelemetry/actions/runs/45811002338)、[官方 Collector 互操作](https://github.com/miik-su/MoonTelemetry/actions/runs/45811002216)、[Linux 生命周期](https://github.com/miik-su/MoonTelemetry/actions/runs/45811002310)通过 |
-| 构建与分发 | [正式发布核对](RELEASE_0.1.4.md)记录源码包的解包编译及当前注册表状态。GitHub Release 与 Mooncakes 模块是两项交付。 |
+| 构建与分发 | [正式发布核对](RELEASE_0.1.4.md)记录源码包的解包编译。2026-11-28 Mooncakes 0.1.4 发布与[独立注册表安装](results/2026-11-28/README.md)通过。 |
 
 截至自查基线，Git 历史有 140 个自 7 月 13 日起的非合并提交，包括实现、测试和文档工作。
 核心目录下非测试、非生成的 MoonBit 源文件去除空行、独立注释后约 5,127 行，行数供参考。

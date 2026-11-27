@@ -5,8 +5,10 @@
 模块和 CLI 版本均为 0.1.4。
 候选 [v0.1.4-rc.1](https://github.com/miik-su/MoonTelemetry/tree/v0.1.4-rc.1)
 仍指向 `b76c344e4c2096351ec05a419dafcb3d3f85aed3`。
-Mooncakes 预检已通过源码与解包编译检查，注册表要求使用有 `miik-su` 命名空间
-权限的登录。模块仍未发布，独立调用方的注册表安装验证待发布后执行。
+2026-11-28 从正式标签的干净检出发布
+[`miik-su/moontelemetry@0.1.4`](https://mooncakes.io/docs/miik-su/moontelemetry%400.1.4)。
+独立调用方从注册表安装并运行通过，下载归档与上传归档的 SHA-256 一致。
+见[安装验证](results/2026-11-28/README.md)。
 
 | 原计划验收项 | 已核对的工作与证据 |
 | --- | --- |

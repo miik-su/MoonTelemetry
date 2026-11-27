@@ -6,7 +6,8 @@
 版本可用性以 Mooncakes 查询为准。
 当前候选的标签、关键验证和待发布项见[发布候选核对](RELEASE_0.1.4.md)。
 GitHub 源码已正式发布为 [v0.1.4](https://github.com/miik-su/MoonTelemetry/releases/tag/v0.1.4)。
-Mooncakes 0.1.4 仍待完成注册表授权，独立安装结果待发布后验证。
+Mooncakes [0.1.4](https://mooncakes.io/docs/miik-su/moontelemetry%400.1.4) 已发布。
+[独立项目安装与运行](results/2026-11-28/README.md)在 Windows Native 验证通过。
 
 ## 从源码运行
 
@@ -27,7 +28,7 @@ codec-demo 无需网络服务，直接验证公开协议 API 的 JSON→Protobuf
 
 ## 作为库使用
 
-当 Mooncakes 可查询到 0.1.4 时，在调用方模块执行：
+在调用方模块执行：
 
 ```sh
 moon add miik-su/moontelemetry@0.1.4
