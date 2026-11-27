@@ -105,6 +105,8 @@ CI 对选定包、格式、生成接口、模型描述符、发行包和示例�
 [插件契约](docs/PLUGINS.md) · [数据模型](docs/DATA_MODEL.md) ·
 [使用与发布状态](docs/DISTRIBUTION.md) · [贡献规则](CONTRIBUTING.md)
 
+八月黑客松的仓库核对、测试证据与待确认事项见[验收证据索引](docs/HACKATHON_ACCEPTANCE.md)。
+
 Apache-2.0，见 [LICENSE](LICENSE) 与 [NOTICE](NOTICE)。依赖、生成模型、fixtures 和
 架构参考的来源／许可见 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。
 软件许可、协议能力与运行数据权利的区别见[契约说明](docs/CONTRACTS.md)。
