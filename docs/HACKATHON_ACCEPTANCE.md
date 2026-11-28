@@ -35,8 +35,19 @@
 | 5. 资源与安全保护 | 提供动态请求和共享逻辑内存预算、请求与连接边界、Bearer Token 鉴权、来源限制、属性白名单及正文遮盖；报告 Native RSS。[动态预算测试](../tests/integration/dynamic_budget_test.mbt)、[接收安全测试](../tests/integration/receiver_security_test.mbt)、[隐私配置测试](../tests/integration/delivery_policy_test.mbt)、[资源观测样本](results/2026-11-26/README.md) | 逻辑预算与实际 RSS 分开观察；管理员配置与部署信任范围见[威胁模型](THREAT_MODEL.md) |
 | 6. 运行管理与可观测性 | 提供 JSON 配置验证、CLI、组件注册、存活和就绪检查、运行计数与关闭流程。[就绪测试](../tests/integration/readiness_test.mbt)、[插件集成测试](../tests/integration/plugin_test.mbt)、[生命周期及恢复验证](results/2026-11-25/README.md)、[Windows Ctrl+Break 原始结果](results/2026-11-23/windows-console.raw.json) | Linux 信号和 Windows 附加控制台有单独证据；服务管理器按实际部署验证 |
 
-申报书所列的全量测试和跨环境部署属于后续工作。现有证据覆盖关键 CI、协议互操作、
-Linux Compose/TLS、Windows 控制台和本机持续负载；全量测试和生产目标环境验收尚未完成。
+### 申报书中的当前完成标准
+
+原申报书「测试与完成标准」下「2. 当前完成标准」第 121 行原文如下。
+
+> 项目已实现首版核心 Collector 功能，具备可运行源码、配置示例、演示程序、自动化测试、协议说明、安全策略、许可证和测试记录。
+
+同节第 123 行原文如下。
+
+> 后续将继续完善复杂遥测模型互操作、全量自动化测试、持续模糊测试、最新版长期压力测试以及跨环境部署验证。
+
+**全量自动化测试和跨环境部署验证属于后续工作，本次验收缺口清单不包含这两项。**
+[八月黑客松活动说明](https://bxup9uklfcb.feishu.cn/wiki/KNrVwEVFziPHiGkQtwhc6w3gndd)第六节要求提供可运行的测试和示例、配置 CI，并能正常构建。
+现有证据覆盖关键 CI、协议互操作、Linux Compose/TLS、Windows 控制台和本机持续负载。
 
 ## 其他交付证据
 
