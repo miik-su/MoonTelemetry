@@ -33,7 +33,7 @@
 | 3. 数据处理组件 | 提供大小保护、Resource 与记录属性处理、条件过滤、脱敏、Batch 和自定义 Processor 接口。[属性转换测试](../processor/transform_test.mbt)、[过滤与脱敏顺序测试](../tests/integration/filter_pipeline_test.mbt)、[插件接口测试](../core/component/plugin_api_test.mbt) | 依配置次序处理，过滤和脱敏取决于启用的规则 |
 | 4. 多目标数据导出 | 支持调试输出、轮转 JSONL 和 OTLP/HTTP JSON／Protobuf 转发；实现有限重试、退避、Retry-After、单次及总超时。[轮转与出口测试](../tests/integration/exporter_safety_test.mbt)、[期限与重试等待测试](../tests/integration/export_deadline_test.mbt)、[断线恢复测试](../tests/integration/exporter_recovery_test.mbt) | 各目标独立计数；有限重试和易失队列的交付语义见运行说明 |
 | 5. 资源与安全保护 | 提供动态请求和共享逻辑内存预算、请求与连接边界、Bearer Token 鉴权、来源限制、属性白名单及正文遮盖；报告 Native RSS。[动态预算测试](../tests/integration/dynamic_budget_test.mbt)、[接收安全测试](../tests/integration/receiver_security_test.mbt)、[隐私配置测试](../tests/integration/delivery_policy_test.mbt)、[资源观测样本](results/2026-11-26/README.md) | 逻辑预算与实际 RSS 分开观察；管理员配置与部署信任范围见[威胁模型](THREAT_MODEL.md) |
-| 6. 运行管理与可观测性 | 提供 JSON 配置验证、CLI、组件注册、存活和就绪检查、运行计数与关闭流程。[就绪测试](../tests/integration/readiness_test.mbt)、[插件集成测试](../tests/integration/plugin_test.mbt)、[生命周期及恢复验证](results/2026-11-25/README.md) | Linux 信号和 Windows 附加控制台有单独证据；服务管理器按实际部署验证 |
+| 6. 运行管理与可观测性 | 提供 JSON 配置验证、CLI、组件注册、存活和就绪检查、运行计数与关闭流程。[就绪测试](../tests/integration/readiness_test.mbt)、[插件集成测试](../tests/integration/plugin_test.mbt)、[生命周期及恢复验证](results/2026-11-25/README.md)、[Windows Ctrl+Break 原始结果](results/2026-11-23/windows-console.raw.json) | Linux 信号和 Windows 附加控制台有单独证据；服务管理器按实际部署验证 |
 
 申报书所列的全量测试和跨环境部署属于后续工作。现有证据覆盖关键 CI、协议互操作、
 Linux Compose/TLS、Windows 控制台和本机持续负载；全量测试和生产目标环境验收尚未完成。
